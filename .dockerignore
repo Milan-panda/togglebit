@@ -1,0 +1,15 @@
+.env
+.env.*
+.git
+.github
+.next
+.pnpm-store
+.venv
+__pycache__
+*.pyc
+node_modules
+dist
+coverage
+apps/**/.next
+apps/**/node_modules
+packages/**/node_modules
