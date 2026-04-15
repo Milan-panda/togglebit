@@ -1,5 +1,5 @@
 {
-  "name": "togglebit-monorepo",
+  "name": "togglebit",
   "private": true,
   "scripts": {
     "sdk:build": "pnpm --filter ./packages/sdk build",

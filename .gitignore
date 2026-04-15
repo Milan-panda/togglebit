@@ -11,3 +11,4 @@ apps/**/package-lock.json
 apps/**/pnpm-lock.yaml
 .next/
 .pnpm-store/
+.env.prod
