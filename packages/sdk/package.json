@@ -1,6 +1,6 @@
 {
   "name": "togglebit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Feature flags built for Next.js",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -46,6 +46,7 @@
     }
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",
     "tsup": "^8.0.0",
