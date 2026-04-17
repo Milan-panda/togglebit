@@ -25,7 +25,13 @@ import {
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
 
-export function GenerateKeyDialog() {
+export function GenerateKeyDialog({
+  canManage = false,
+  orgId,
+}: {
+  canManage?: boolean
+  orgId?: string
+}) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
@@ -43,12 +49,13 @@ export function GenerateKeyDialog() {
     try {
       const token = await getToken()
       if (!token) return
-      const result = await api.keys.create(token, { name, environment })
+      const result = await api.keys.create(token, { name, environment }, orgId)
       setGeneratedKey(result.raw_key || '')
       toast.success('API key generated')
       router.refresh()
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to generate key')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to generate key'
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -72,7 +79,15 @@ export function GenerateKeyDialog() {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogTrigger render={<Button />}>
+      <DialogTrigger
+        render={
+          <Button
+            disabled={!canManage}
+            className="rounded-full bg-primary px-4 hover:bg-[var(--primary-hover)]"
+            title={canManage ? undefined : 'Your role cannot create API keys'}
+          />
+        }
+      >
         <Plus className="mr-2 h-4 w-4" />
         Generate Key
       </DialogTrigger>
@@ -80,7 +95,7 @@ export function GenerateKeyDialog() {
         <DialogHeader>
           <DialogTitle>Generate API Key</DialogTitle>
           <DialogDescription>
-            Keys are shown once. Copy it before closing this dialog.
+            Keys are shown once. Copy and store it before closing.
           </DialogDescription>
         </DialogHeader>
 
@@ -98,11 +113,11 @@ export function GenerateKeyDialog() {
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-destructive">
-                Copy this key now. You won't be able to see it again.
+              <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                Copy this key now. You won&apos;t be able to see it again.
               </p>
             </div>
-            <Button onClick={() => handleClose(false)} className="w-full">
+            <Button onClick={() => handleClose(false)} className="w-full rounded-full bg-primary hover:bg-[var(--primary-hover)]">
               Done
             </Button>
           </div>
@@ -119,7 +134,7 @@ export function GenerateKeyDialog() {
             <div className="space-y-2">
               <Label>Environment</Label>
               <Select value={environment} onValueChange={(v) => v && setEnvironment(v)}>
-                <SelectTrigger>
+                <SelectTrigger className="rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -129,7 +144,7 @@ export function GenerateKeyDialog() {
                 </SelectContent>
               </Select>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full rounded-full bg-primary hover:bg-[var(--primary-hover)]" disabled={loading}>
               {loading ? 'Generating...' : 'Generate'}
             </Button>
           </form>

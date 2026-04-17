@@ -24,7 +24,7 @@ export function EnvSwitcher() {
 
   return (
     <Select value={currentEnv} onValueChange={(v) => v && handleChange(v)}>
-      <SelectTrigger className="w-32">
+      <SelectTrigger className="h-9 w-full rounded-full border border-input bg-background/70 px-3">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

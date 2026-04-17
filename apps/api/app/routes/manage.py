@@ -10,7 +10,7 @@ from app.models.flag import (
     FlagResponse,
     UpdateEnvRequest,
 )
-from app.services.auth import ClerkAuth, require_clerk
+from app.services.authorization import OrgMembership, require_org_membership, require_org_roles
 from app.services.cache import invalidate_flag
 
 router = APIRouter(tags=["manage"])
@@ -18,24 +18,12 @@ router = APIRouter(tags=["manage"])
 DEFAULT_ENVS = ["dev", "staging", "prod"]
 
 
-async def _get_org_id(db, user_id: str) -> str:
-    row = await db.fetchrow(
-        "SELECT org_id::text FROM org_members WHERE user_id = $1 LIMIT 1",
-        user_id,
-    )
-    if not row:
-        raise HTTPException(status_code=403, detail="Not a member of any organization")
-    return row["org_id"]
-
-
 @router.get("/flags", response_model=FlagListResponse)
 async def list_flags(
     env: str = Query("dev"),
-    auth: ClerkAuth = Depends(require_clerk),
+    membership: OrgMembership = Depends(require_org_membership),
     db: DB = None,
 ):
-    org_id = await _get_org_id(db, auth.user_id)
-
     rows = await db.fetch(
         """
         SELECT f.id::text, f.key, f.name, f.description, f.type,
@@ -47,7 +35,7 @@ async def list_flags(
         WHERE f.org_id = $1::uuid
         ORDER BY f.created_at DESC
         """,
-        org_id,
+        membership.org_id,
         env,
     )
 
@@ -80,14 +68,12 @@ async def list_flags(
 @router.post("/flags", response_model=FlagResponse, status_code=201)
 async def create_flag(
     body: CreateFlagRequest,
-    auth: ClerkAuth = Depends(require_clerk),
+    membership: OrgMembership = Depends(require_org_roles("owner", "admin", "developer")),
     db: DB = None,
 ):
-    org_id = await _get_org_id(db, auth.user_id)
-
     existing = await db.fetchrow(
         "SELECT id FROM flags WHERE org_id = $1::uuid AND key = $2",
-        org_id,
+        membership.org_id,
         body.key,
     )
     if existing:
@@ -99,12 +85,12 @@ async def create_flag(
         VALUES ($1::uuid, $2, $3, $4, $5, $6)
         RETURNING id::text, key, name, description, type, created_at::text
         """,
-        org_id,
+        membership.org_id,
         body.key,
         body.name,
         body.description,
         body.type,
-        auth.user_id,
+        membership.user_id,
     )
 
     envs = body.environments or {e: EnvConfig() for e in DEFAULT_ENVS}
@@ -117,12 +103,12 @@ async def create_flag(
             VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::jsonb, $7)
             """,
             row["id"],
-            org_id,
+            membership.org_id,
             env_name,
             env_config.enabled,
             env_config.rollout_pct,
             json.dumps(env_config.rules),
-            auth.user_id,
+            membership.user_id,
         )
         env_result[env_name] = env_config
 
@@ -131,9 +117,9 @@ async def create_flag(
         INSERT INTO flag_events (org_id, flag_id, environment, user_id, action, new_value)
         VALUES ($1::uuid, $2::uuid, 'all', $3, 'created', $4::jsonb)
         """,
-        org_id,
+        membership.org_id,
         row["id"],
-        auth.user_id,
+        membership.user_id,
         json.dumps({"key": body.key, "type": body.type}),
     )
 
@@ -151,17 +137,15 @@ async def create_flag(
 @router.get("/flags/{key}", response_model=FlagResponse)
 async def get_flag(
     key: str,
-    auth: ClerkAuth = Depends(require_clerk),
+    membership: OrgMembership = Depends(require_org_membership),
     db: DB = None,
 ):
-    org_id = await _get_org_id(db, auth.user_id)
-
     flag = await db.fetchrow(
         """
         SELECT id::text, key, name, description, type, created_at::text
         FROM flags WHERE org_id = $1::uuid AND key = $2
         """,
-        org_id,
+        membership.org_id,
         key,
     )
     if not flag:
@@ -199,15 +183,13 @@ async def update_flag_env(
     key: str,
     env: str,
     body: UpdateEnvRequest,
-    auth: ClerkAuth = Depends(require_clerk),
+    membership: OrgMembership = Depends(require_org_roles("owner", "admin", "developer")),
     db: DB = None,
     redis: Redis = None,
 ):
-    org_id = await _get_org_id(db, auth.user_id)
-
     flag = await db.fetchrow(
         "SELECT id::text FROM flags WHERE org_id = $1::uuid AND key = $2",
-        org_id,
+        membership.org_id,
         key,
     )
     if not flag:
@@ -239,7 +221,7 @@ async def update_flag_env(
         new_enabled,
         new_pct,
         new_rules if isinstance(new_rules, str) else json.dumps(new_rules),
-        auth.user_id,
+        membership.user_id,
         flag["id"],
         env,
     )
@@ -265,16 +247,16 @@ async def update_flag_env(
             (org_id, flag_id, environment, user_id, action, old_value, new_value)
         VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::jsonb, $7::jsonb)
         """,
-        org_id,
+        membership.org_id,
         flag["id"],
         env,
-        auth.user_id,
+        membership.user_id,
         action,
         json.dumps(old_value),
         json.dumps(new_value),
     )
 
-    await invalidate_flag(redis, org_id, env, key)
+    await invalidate_flag(redis, membership.org_id, env, key)
 
     return {"status": "updated", "flag": key, "environment": env}
 
@@ -282,15 +264,13 @@ async def update_flag_env(
 @router.delete("/flags/{key}")
 async def delete_flag(
     key: str,
-    auth: ClerkAuth = Depends(require_clerk),
+    membership: OrgMembership = Depends(require_org_roles("owner", "admin")),
     db: DB = None,
     redis: Redis = None,
 ):
-    org_id = await _get_org_id(db, auth.user_id)
-
     flag = await db.fetchrow(
         "SELECT id::text FROM flags WHERE org_id = $1::uuid AND key = $2",
-        org_id,
+        membership.org_id,
         key,
     )
     if not flag:
@@ -306,14 +286,14 @@ async def delete_flag(
         INSERT INTO flag_events (org_id, flag_id, environment, user_id, action)
         VALUES ($1::uuid, $2::uuid, 'all', $3, 'deleted')
         """,
-        org_id,
+        membership.org_id,
         flag["id"],
-        auth.user_id,
+        membership.user_id,
     )
 
     await db.execute("DELETE FROM flags WHERE id = $1::uuid", flag["id"])
 
     for env_row in envs:
-        await invalidate_flag(redis, org_id, env_row["environment"], key)
+        await invalidate_flag(redis, membership.org_id, env_row["environment"], key)
 
     return {"status": "deleted", "flag": key}

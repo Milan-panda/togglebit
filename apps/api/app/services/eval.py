@@ -30,6 +30,17 @@ def evaluate(
                     return False, "segment_no_match"
             return True, "segment_match"
 
+        case "combined":
+            rules = config.get("rules") or []
+            for rule in rules:
+                if not _match_rule(rule, user_context):
+                    return False, "segment_no_match"
+
+            seed = f"{flag_key}:{user_id}"
+            bucket = int(hashlib.md5(seed.encode()).hexdigest()[:8], 16) % 100
+            hit = bucket < config["rollout_pct"]
+            return hit, "segment_and_percentage"
+
         case _:
             return False, "unknown_type"
 

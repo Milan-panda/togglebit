@@ -41,12 +41,11 @@ services:
       NEXT_PUBLIC_TOGGLEBIT_API_URL: ${NEXT_PUBLIC_TOGGLEBIT_API_URL:-/api}
       NEXT_PUBLIC_TOGGLEBIT_ENV: ${NEXT_PUBLIC_TOGGLEBIT_ENV:-dev}
       NODE_ENV: development
-    command: sh -c "pnpm --filter ./packages/sdk build && pnpm --filter ./apps/dashboard dev"
+    command: sh -c "pnpm install --frozen-lockfile && pnpm --filter ./apps/dashboard dev"
     volumes:
       - .:/workspace
       - dashboard_root_node_modules:/workspace/node_modules
       - dashboard_app_node_modules:/workspace/apps/dashboard/node_modules
-      - dashboard_sdk_node_modules:/workspace/packages/sdk/node_modules
     depends_on:
       api:
         condition: service_started
@@ -116,6 +115,5 @@ networks:
 volumes:
   dashboard_root_node_modules:
   dashboard_app_node_modules:
-  dashboard_sdk_node_modules:
   postgres_data:
   redis_data:

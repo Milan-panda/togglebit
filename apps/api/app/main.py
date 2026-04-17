@@ -37,7 +37,7 @@ app.add_middleware(
     allow_origins=[settings.dashboard_url],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Org-Id"],
 )
 
 app.include_router(health.router)

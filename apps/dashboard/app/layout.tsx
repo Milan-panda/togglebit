@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
 import { Toaster } from '@/components/ui/sonner'
 import { TogglebitAppProvider } from '@/components/togglebit-app-provider'
+import { ThemeProvider } from '@/components/theme-provider'
 import { GeistSans } from 'geist/font/sans'
 import './globals.css'
 
@@ -20,12 +21,14 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body className={`${GeistSans.className} antialiased`}>
-          <TogglebitAppProvider>
-            {children}
-            <Toaster />
-          </TogglebitAppProvider>
+          <ThemeProvider>
+            <TogglebitAppProvider>
+              {children}
+              <Toaster />
+            </TogglebitAppProvider>
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

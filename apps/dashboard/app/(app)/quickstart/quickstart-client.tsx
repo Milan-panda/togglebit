@@ -10,17 +10,18 @@ import Link from 'next/link'
 interface Props {
   keyPrefix?: string
   hasKeys: boolean
+  orgId?: string
 }
 
-export function QuickstartClient({ keyPrefix, hasKeys }: Props) {
+export function QuickstartClient({ keyPrefix, hasKeys, orgId }: Props) {
   const apiKeyPlaceholder = keyPrefix
     ? `${keyPrefix}...your_full_key_here`
     : 'tb_dev_your_api_key_here'
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Quickstart</h1>
+        <h1 className="text-2xl font-semibold tracking-tight md:text-[24px]">Quickstart</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Get feature flags working in your Next.js app in 3 steps.
         </p>
@@ -32,7 +33,7 @@ export function QuickstartClient({ keyPrefix, hasKeys }: Props) {
             <p className="text-sm">
               You need an API key first.
             </p>
-            <Link href="/keys">
+            <Link href={orgId ? `/keys?org=${encodeURIComponent(orgId)}` : '/keys'}>
               <Button size="sm">
                 Generate Key
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -42,17 +43,18 @@ export function QuickstartClient({ keyPrefix, hasKeys }: Props) {
         </Card>
       )}
 
-      <Step number={1} title="Install the SDK">
-        <CodeBlock code="npm install togglebit" language="bash" />
-      </Step>
+      <div className="relative space-y-6 before:absolute before:bottom-6 before:left-4 before:top-6 before:w-px before:bg-border">
+        <Step number={1} title="Install the SDK">
+          <CodeBlock code="npm install togglebit" language="bash" />
+        </Step>
 
-      <Step number={2} title="Add the provider">
-        <p className="mb-3 text-sm text-muted-foreground">
-          Wrap your app with the Togglebit provider in your root layout or providers file.
-        </p>
-        <CodeBlock
-          language="tsx"
-          code={`// app/providers.tsx
+        <Step number={2} title="Add the provider">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Wrap your app with the Togglebit provider in your root layout or providers file.
+          </p>
+          <CodeBlock
+            language="tsx"
+            code={`// app/providers.tsx
 'use client'
 import { TogglebitProvider } from 'togglebit'
 
@@ -66,29 +68,29 @@ export function Providers({ children }: { children: React.ReactNode }) {
     </TogglebitProvider>
   )
 }`}
-        />
-      </Step>
+          />
+        </Step>
 
-      <Step number={3} title="Use a flag">
-        <div className="space-y-4">
-          <div>
-            <Badge variant="secondary" className="mb-2">Client Component</Badge>
-            <CodeBlock
-              language="tsx"
-              code={`'use client'
+        <Step number={3} title="Use a flag">
+          <div className="space-y-4">
+            <div>
+              <Badge variant="secondary" className="mb-2">Client Component</Badge>
+              <CodeBlock
+                language="tsx"
+                code={`'use client'
 import { useFlag } from 'togglebit'
 
 export function MyComponent() {
   const darkMode = useFlag('dark-mode', { userId: user.id })
   return darkMode ? <DarkUI /> : <LightUI />
 }`}
-            />
-          </div>
-          <div>
-            <Badge variant="secondary" className="mb-2">Server Component</Badge>
-            <CodeBlock
-              language="tsx"
-              code={`import { getFlag } from 'togglebit/server'
+              />
+            </div>
+            <div>
+              <Badge variant="secondary" className="mb-2">Server Component</Badge>
+              <CodeBlock
+                language="tsx"
+                code={`import { getFlag } from 'togglebit/server'
 
 export default async function Page() {
   const enabled = await getFlag(
@@ -101,10 +103,11 @@ export default async function Page() {
   )
   return enabled ? <NewDashboard /> : <OldDashboard />
 }`}
-            />
+              />
+            </div>
           </div>
-        </div>
-      </Step>
+        </Step>
+      </div>
     </div>
   )
 }
@@ -119,10 +122,10 @@ function Step({
   children: React.ReactNode
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-lg">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+    <Card className="hover-lift border border-border/80 bg-card">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-3 text-lg font-semibold">
+          <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground shadow-[0_0_0_4px_var(--card)]">
             {number}
           </span>
           {title}
@@ -143,14 +146,20 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
   }
 
   return (
-    <div className="relative">
-      <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-sm">
+    <div className="relative overflow-hidden rounded-lg border border-violet-500/25 bg-code-bg">
+      <div className="flex items-center justify-between border-b border-violet-500/20 px-3 py-2 text-xs">
+        <span className="rounded-full border border-violet-500/30 px-2 py-0.5 font-medium uppercase tracking-wide text-violet-300">
+          {language}
+        </span>
+        <span className="text-muted-foreground">{copied ? 'Copied!' : 'Copy'}</span>
+      </div>
+      <pre className="overflow-x-auto p-4 text-sm text-code-foreground">
         <code>{code}</code>
       </pre>
       <Button
         variant="ghost"
         size="icon"
-        className="absolute right-2 top-2 h-7 w-7"
+        className="absolute right-2 top-1.5 h-7 w-7 rounded-full hover:bg-accent"
         onClick={handleCopy}
       >
         {copied ? (

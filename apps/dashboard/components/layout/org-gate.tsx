@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
 import { api } from '@/lib/api'
 
@@ -11,6 +11,8 @@ import { api } from '@/lib/api'
  */
 export function OrgGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const selectedOrgSlug = searchParams.get('org') || undefined
   const router = useRouter()
   const { isLoaded, userId, getToken } = useAuth()
 
@@ -23,7 +25,7 @@ export function OrgGate({ children }: { children: React.ReactNode }) {
       try {
         const token = await getToken()
         if (!token || cancelled) return
-        const org = await api.orgs.meOptional(token)
+        const org = await api.orgs.meOptional(token, selectedOrgSlug)
         if (!cancelled && org === null) {
           router.replace('/onboarding')
         }
@@ -35,7 +37,7 @@ export function OrgGate({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [isLoaded, userId, pathname, router, getToken])
+  }, [isLoaded, userId, pathname, router, getToken, selectedOrgSlug])
 
   return <>{children}</>
 }

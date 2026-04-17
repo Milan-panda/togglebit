@@ -5,7 +5,7 @@ class CreateFlagRequest(BaseModel):
     key: str = Field(pattern=r"^[a-z0-9][a-z0-9\-]{0,62}[a-z0-9]$")
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
-    type: str = Field(default="boolean", pattern=r"^(boolean|percentage|segment)$")
+    type: str = Field(default="boolean", pattern=r"^(boolean|percentage|segment|combined)$")
     environments: dict[str, "EnvConfig"] | None = None
 
 

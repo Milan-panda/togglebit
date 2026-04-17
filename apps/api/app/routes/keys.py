@@ -3,7 +3,8 @@ from pydantic import BaseModel, Field
 
 from app.dependencies import DB, Redis
 from app.models.response import ApiKeyCreatedResponse, ApiKeyResponse
-from app.services.auth import ClerkAuth, generate_api_key, require_clerk
+from app.services.auth import generate_api_key
+from app.services.authorization import OrgMembership, require_org_membership, require_org_roles
 
 router = APIRouter(tags=["keys"])
 
@@ -13,23 +14,12 @@ class CreateKeyRequest(BaseModel):
     environment: str = Field(pattern=r"^(dev|staging|prod)$")
 
 
-async def _get_org_id(db, user_id: str) -> str:
-    row = await db.fetchrow(
-        "SELECT org_id::text FROM org_members WHERE user_id = $1 LIMIT 1",
-        user_id,
-    )
-    if not row:
-        raise HTTPException(status_code=403, detail="Not a member of any organization")
-    return row["org_id"]
-
-
 @router.post("/keys", response_model=ApiKeyCreatedResponse, status_code=201)
 async def create_key(
     body: CreateKeyRequest,
-    auth: ClerkAuth = Depends(require_clerk),
+    membership: OrgMembership = Depends(require_org_roles("owner", "admin")),
     db: DB = None,
 ):
-    org_id = await _get_org_id(db, auth.user_id)
     raw, hashed, prefix = generate_api_key(body.environment)
 
     row = await db.fetchrow(
@@ -38,12 +28,12 @@ async def create_key(
         VALUES ($1::uuid, $2, $3, $4, $5, $6)
         RETURNING id::text, environment, key_prefix, name, last_used_at::text, created_at::text
         """,
-        org_id,
+        membership.org_id,
         body.environment,
         hashed,
         prefix,
         body.name,
-        auth.user_id,
+        membership.user_id,
     )
 
     return ApiKeyCreatedResponse(
@@ -59,11 +49,9 @@ async def create_key(
 
 @router.get("/keys", response_model=list[ApiKeyResponse])
 async def list_keys(
-    auth: ClerkAuth = Depends(require_clerk),
+    membership: OrgMembership = Depends(require_org_membership),
     db: DB = None,
 ):
-    org_id = await _get_org_id(db, auth.user_id)
-
     rows = await db.fetch(
         """
         SELECT id::text, environment, key_prefix, name,
@@ -72,7 +60,7 @@ async def list_keys(
         WHERE org_id = $1::uuid
         ORDER BY created_at DESC
         """,
-        org_id,
+        membership.org_id,
     )
 
     return [
@@ -91,16 +79,14 @@ async def list_keys(
 @router.delete("/keys/{key_id}")
 async def revoke_key(
     key_id: str,
-    auth: ClerkAuth = Depends(require_clerk),
+    membership: OrgMembership = Depends(require_org_roles("owner", "admin")),
     db: DB = None,
     redis: Redis = None,
 ):
-    org_id = await _get_org_id(db, auth.user_id)
-
     row = await db.fetchrow(
         "SELECT key_hash FROM api_keys WHERE id = $1::uuid AND org_id = $2::uuid",
         key_id,
-        org_id,
+        membership.org_id,
     )
     if not row:
         raise HTTPException(status_code=404, detail="API key not found")

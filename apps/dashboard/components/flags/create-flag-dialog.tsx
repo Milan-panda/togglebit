@@ -10,6 +10,7 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogDescription,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
@@ -23,13 +24,24 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import { ENVIRONMENTS } from '@/lib/constants'
+import { RuleBuilder } from '@/components/flags/rule-builder'
+import type { Rule } from '@/lib/api'
 
-export function CreateFlagDialog() {
+export function CreateFlagDialog({
+  canCreate = true,
+  orgId,
+}: {
+  canCreate?: boolean
+  orgId?: string
+}) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
   const [type, setType] = useState('boolean')
+  const [rolloutPct, setRolloutPct] = useState(0)
+  const [rules, setRules] = useState<Rule[]>([])
   const router = useRouter()
   const { getToken } = useAuth()
 
@@ -51,15 +63,32 @@ export function CreateFlagDialog() {
     try {
       const token = await getToken()
       if (!token) return
-      await api.flags.create(token, { key, name, type })
+      const needsRollout = type === 'percentage' || type === 'combined'
+      const needsRules = type === 'segment' || type === 'combined'
+
+      const envConfig = {
+        enabled: false,
+        rollout_pct: needsRollout ? rolloutPct : 0,
+        rules: needsRules ? rules : [],
+      }
+
+      await api.flags.create(token, {
+        key,
+        name,
+        type,
+        environments: Object.fromEntries(ENVIRONMENTS.map((e) => [e, envConfig])),
+      }, orgId)
       toast.success(`Flag "${name}" created`)
       setOpen(false)
       setName('')
       setKey('')
       setType('boolean')
+      setRolloutPct(0)
+      setRules([])
       router.refresh()
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to create flag')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to create flag'
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -67,13 +96,24 @@ export function CreateFlagDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button />}>
+      <DialogTrigger
+        render={
+          <Button
+            disabled={!canCreate}
+            title={canCreate ? undefined : 'Your role cannot create flags'}
+            className="rounded-full bg-primary px-4 hover:bg-[var(--primary-hover)]"
+          />
+        }
+      >
         <Plus className="mr-2 h-4 w-4" />
         Create Flag
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create a new flag</DialogTitle>
+          <DialogDescription>
+            Set up the key, type, and rollout defaults. You can tune per environment later.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -101,17 +141,37 @@ export function CreateFlagDialog() {
           <div className="space-y-2">
             <Label>Type</Label>
             <Select value={type} onValueChange={(v) => v && setType(v)}>
-              <SelectTrigger>
+              <SelectTrigger className="rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="boolean">Boolean</SelectItem>
                 <SelectItem value="percentage">Percentage</SelectItem>
                 <SelectItem value="segment">Segment</SelectItem>
+                <SelectItem value="combined">Segment + Percentage</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
+          {(type === 'percentage' || type === 'combined') && (
+            <div className="space-y-2">
+              <Label>Initial rollout %</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={rolloutPct}
+                className="rounded-xl"
+                onChange={(e) => setRolloutPct(Number(e.target.value))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Applies to all environments; you can edit per-environment later.
+              </p>
+            </div>
+          )}
+          {(type === 'segment' || type === 'combined') && (
+            <RuleBuilder rules={rules} onChange={setRules} />
+          )}
+          <Button type="submit" className="w-full rounded-full bg-primary hover:bg-[var(--primary-hover)]" disabled={loading}>
             {loading ? 'Creating...' : 'Create Flag'}
           </Button>
         </form>
