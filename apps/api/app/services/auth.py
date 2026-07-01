@@ -26,6 +26,7 @@ class ApiKeyAuth:
 class ClerkAuth:
     user_id: str
     email: str | None = None
+    name: str | None = None
 
 
 def generate_api_key(environment: str) -> tuple[str, str, str]:
@@ -105,9 +106,27 @@ def _resolve_email_from_payload(payload: dict) -> str | None:
     return None
 
 
-def _fetch_email_from_clerk_api(user_id: str) -> str | None:
+def _resolve_name_from_payload(payload: dict) -> str | None:
+    for key in ("name", "full_name"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    first = payload.get("first_name")
+    last = payload.get("last_name")
+    parts = [
+        part.strip()
+        for part in (first, last)
+        if isinstance(part, str) and part.strip()
+    ]
+    if parts:
+        return " ".join(parts)
+    return None
+
+
+def _fetch_user_from_clerk_api(user_id: str) -> tuple[str | None, str | None]:
     if not settings.clerk_secret_key:
-        return None
+        return None, None
     req = urllib_request.Request(
         f"https://api.clerk.com/v1/users/{user_id}",
         headers={"Authorization": f"Bearer {settings.clerk_secret_key}"},
@@ -118,8 +137,9 @@ def _fetch_email_from_clerk_api(user_id: str) -> str | None:
             body = response.read().decode("utf-8")
             data = json.loads(body)
     except (urllib_error.URLError, urllib_error.HTTPError, TimeoutError, json.JSONDecodeError):
-        return None
+        return None, None
 
+    email = None
     primary_id = data.get("primary_email_address_id")
     addresses = data.get("email_addresses")
     if isinstance(addresses, list):
@@ -130,13 +150,23 @@ def _fetch_email_from_clerk_api(user_id: str) -> str | None:
                 if entry.get("id") == primary_id:
                     value = entry.get("email_address")
                     if isinstance(value, str) and value.strip():
-                        return value.strip().lower()
-        for entry in addresses:
-            if isinstance(entry, dict):
-                value = entry.get("email_address")
-                if isinstance(value, str) and value.strip():
-                    return value.strip().lower()
-    return None
+                        email = value.strip().lower()
+                        break
+        if not email:
+            for entry in addresses:
+                if isinstance(entry, dict):
+                    value = entry.get("email_address")
+                    if isinstance(value, str) and value.strip():
+                        email = value.strip().lower()
+                        break
+
+    name = _resolve_name_from_payload(data)
+    return email, name
+
+
+def _fetch_email_from_clerk_api(user_id: str) -> str | None:
+    email, _ = _fetch_user_from_clerk_api(user_id)
+    return email
 
 
 def _get_jwks_client() -> PyJWKClient:
@@ -172,9 +202,14 @@ async def require_clerk(
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token: no sub claim")
         email = _resolve_email_from_payload(payload)
-        if not email:
-            email = await asyncio.to_thread(_fetch_email_from_clerk_api, user_id)
-        return ClerkAuth(user_id=user_id, email=email)
+        name = _resolve_name_from_payload(payload)
+        if not email or not name:
+            clerk_email, clerk_name = await asyncio.to_thread(
+                _fetch_user_from_clerk_api, user_id
+            )
+            email = email or clerk_email
+            name = name or clerk_name
+        return ClerkAuth(user_id=user_id, email=email, name=name)
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError as e:

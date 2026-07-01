@@ -2,22 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import {
-  Flag,
-  Key,
-  Rocket,
-  LayoutDashboard,
-  Building2,
-} from 'lucide-react'
+import { Flag, Key, Rocket, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { EnvSwitcher } from '@/components/layout/env-switcher'
 import { OrgSwitcher } from '@/components/layout/org-switcher'
 
 const navItems = [
-  { href: '/dashboard', label: 'Flags', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Flags', icon: Flag },
   { href: '/keys', label: 'API Keys', icon: Key },
-  { href: '/quickstart', label: 'Quickstart', icon: Rocket },
-  { href: '/onboarding', label: 'Organization', icon: Building2 },
+  { href: '/quickstart', label: 'Setup', icon: Rocket },
+  { href: '/onboarding', label: 'Settings', icon: Settings },
 ]
 
 type SidebarProps = {
@@ -41,57 +34,42 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-40 flex h-screen w-52 flex-col border-r border-sidebar-border bg-sidebar shadow-xl backdrop-blur-md transition-[transform,width] duration-300 ease-out md:relative md:z-20 md:w-52 md:translate-x-0 md:shadow-none',
+        'fixed inset-y-0 left-0 z-40 flex h-screen w-52 flex-col border-r border-sidebar-border bg-sidebar transition-[transform,width] duration-300 ease-out md:relative md:z-20 md:w-52 md:translate-x-0',
         mobileOpen ? 'translate-x-0' : '-translate-x-full',
-        collapsed && 'md:w-20',
+        collapsed && 'md:w-[4.5rem]',
       )}
       aria-label="Main navigation"
     >
-      <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(100%_75%_at_50%_0%,hsl(var(--foreground)/0.06),transparent_55%)]" />
-
       <div
         className={cn(
-          'relative flex h-16 items-center border-b border-sidebar-border px-4',
+          'flex h-14 items-center border-b border-sidebar-border px-4',
           collapsed && 'md:justify-center md:px-0',
         )}
       >
         <Link
           href={withOrg('/dashboard')}
           onClick={onCloseMobile}
-          className={cn(
-            'group flex items-center gap-2',
-            collapsed && 'md:justify-center',
-          )}
+          className={cn('flex items-center gap-2.5', collapsed && 'md:justify-center')}
           aria-label="Go to dashboard"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-xl border border-border bg-background shadow-sm transition-transform group-hover:-rotate-2">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
             <Flag className="h-4 w-4" />
           </span>
           <span
             className={cn(
-              'leading-tight transition-opacity duration-200',
               collapsed && 'md:pointer-events-none md:w-0 md:overflow-hidden md:opacity-0',
             )}
           >
-            <span className="block text-sm font-semibold tracking-tight">
-              Togglebit
-            </span>
-            <span className="block text-[11px] text-muted-foreground">
-              feature flags
-            </span>
+            <span className="block text-sm font-semibold tracking-tight">Togglebit</span>
           </span>
         </Link>
       </div>
 
-      <div className={cn('space-y-2 border-b border-sidebar-border p-3', collapsed && 'hidden md:block md:px-2')}>
-        <div className={cn('space-y-2', collapsed && 'md:hidden')}>
-          <OrgSwitcher />
-          <EnvSwitcher />
-        </div>
+      <div className={cn('border-b border-sidebar-border p-3', collapsed && 'md:px-2')}>
+        <OrgSwitcher collapsed={collapsed} />
       </div>
 
-      <nav className="relative flex-1 space-y-1 p-3">
-        {!collapsed && <p className="px-3 pb-2 text-[11px] font-medium tracking-[0.16em] text-muted-foreground uppercase">Workspace</p>}
+      <nav className="flex-1 space-y-0.5 p-3">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + '/')
@@ -102,28 +80,17 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
               title={collapsed ? item.label : undefined}
               onClick={onCloseMobile}
               className={cn(
-                'group relative flex h-9 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all',
+                'flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-[var(--nav-active-bg)] text-[var(--nav-active-text)] shadow-sm'
+                  ? 'bg-[var(--nav-active-bg)] text-[var(--nav-active-text)]'
                   : 'text-muted-foreground hover:bg-[var(--nav-hover-bg)] hover:text-foreground',
-                collapsed && 'md:justify-center md:px-2',
+                collapsed && 'md:mx-auto md:h-9 md:w-9 md:justify-center md:px-0',
               )}
               aria-label={item.label}
             >
-              {isActive && (
-                <span className="absolute inset-y-1 left-0 w-px rounded-full bg-[var(--nav-active-glow)]" />
-              )}
+              <item.icon className="h-4 w-4 shrink-0" />
               <span
                 className={cn(
-                  'grid h-7 w-7 place-items-center rounded-md border border-border bg-background/70',
-                  isActive && 'bg-background',
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-              </span>
-              <span
-                className={cn(
-                  'transition-opacity duration-200',
                   collapsed && 'md:pointer-events-none md:w-0 md:overflow-hidden md:opacity-0',
                 )}
               >
@@ -133,18 +100,6 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
           )
         })}
       </nav>
-
-      <div className={cn('relative border-t border-sidebar-border p-3', collapsed && 'md:px-2 md:py-3')}>
-        <div className={cn('rounded-xl border border-border bg-background/70 p-3', collapsed && 'md:grid md:place-items-center md:p-2')}>
-          <p className={cn('text-xs text-muted-foreground', collapsed && 'md:hidden')}>
-            Shortcut:
-            <span className="ml-2 align-middle">
-              <kbd className="kbd-chip">Ctrl/Cmd + B</kbd>
-            </span>
-          </p>
-          {collapsed && <span className="sr-only">Shortcut: Ctrl or Command + B</span>}
-        </div>
-      </div>
     </aside>
   )
 }

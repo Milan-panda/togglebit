@@ -26,6 +26,9 @@ cp .env.example .env
 
 # Start the full dev stack behind nginx on APP_PORT
 pnpm docker:dev
+
+# Migrations run automatically on API startup. To run manually:
+# docker compose exec api python scripts/migrate.py
 ```
 
 ### Environment Variables
@@ -93,13 +96,14 @@ import { useFlag } from 'togglebit'
 
 const darkMode = useFlag('dark-mode', { userId: user.id })
 
-// Server component
-import { getFlag } from 'togglebit/server'
+// Server component — init once in lib/togglebit.ts, use everywhere
+import { createTogglebit } from 'togglebit/server'
 
-const enabled = await getFlag('dark-mode', { userId }, {
+const togglebit = createTogglebit({
   apiKey: process.env.TOGGLEBIT_API_KEY!,
   environment: 'prod',
 })
+const enabled = await togglebit.getFlag('dark-mode', { userId })
 ```
 
 ## API Endpoints

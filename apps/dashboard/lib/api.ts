@@ -56,6 +56,65 @@ export interface ApiKey {
   raw_key?: string
 }
 
+export interface FlagEvent {
+  id: string
+  environment: string
+  user_id: string
+  user_name: string | null
+  user_email: string | null
+  action: string
+  old_value: Record<string, unknown> | null
+  new_value: Record<string, unknown> | null
+  created_at: string
+}
+
+export interface FlagEvalLog {
+  id: string
+  environment: string
+  user_id: string
+  context: Record<string, unknown>
+  enabled: boolean
+  reason: string
+  source: string
+  created_at: string
+}
+
+export interface UsageMonthlyPoint {
+  month: string
+  eval_count: number
+}
+
+export interface UsageMonthlyResponse {
+  current: UsageMonthlyPoint
+  series: UsageMonthlyPoint[]
+}
+
+export interface FlagUsageSeriesResponse {
+  days: string[]
+  by_flag_id: Record<string, number[]>
+}
+
+export interface FlagTestResponse {
+  flag: string
+  environment: string
+  enabled: boolean
+  reason: string
+  latency_ms: number
+  details?: {
+    summary?: string
+    bucket?: number
+    rollout_pct?: number
+    rules?: Array<{
+      attribute: string
+      operator: string
+      expected: unknown
+      actual: unknown
+      matched: boolean
+      label: string
+    }>
+  }
+}
+
 export interface Org {
   id: string
   name: string
@@ -79,6 +138,7 @@ export interface OrgMembership {
 export interface OrgMember {
   user_id: string
   email: string | null
+  name: string | null
   role: OrgRole
   created_at: string
 }
@@ -109,12 +169,22 @@ export interface PendingOrgInvitation {
 
 export const api = {
   flags: {
-    list: (token: string, env: string, orgId?: string) =>
-      apiFetch<{ flags: Flag[]; total: number }>(
-        `/api/v1/manage/flags?env=${env}`,
+    list: (
+      token: string,
+      env: string,
+      orgId?: string,
+      params?: { q?: string; type?: string; enabled?: boolean },
+    ) => {
+      const sp = new URLSearchParams({ env })
+      if (params?.q) sp.set('q', params.q)
+      if (params?.type) sp.set('type', params.type)
+      if (params?.enabled !== undefined) sp.set('enabled', String(params.enabled))
+      return apiFetch<{ flags: Flag[]; total: number }>(
+        `/api/v1/manage/flags?${sp.toString()}`,
         token,
         orgId,
-      ),
+      )
+    },
     get: (token: string, key: string, orgId?: string) =>
       apiFetch<Flag>(`/api/v1/manage/flags/${key}`, token, orgId),
     create: (token: string, body: Record<string, unknown>, orgId?: string) =>
@@ -135,6 +205,83 @@ export const api = {
       }),
     delete: (token: string, key: string, orgId?: string) =>
       apiFetch(`/api/v1/manage/flags/${key}`, token, orgId, { method: 'DELETE' }),
+    events: {
+      list: (
+        token: string,
+        key: string,
+        params: {
+          env?: string
+          from?: string
+          to?: string
+          before?: string
+          limit?: number
+        },
+        orgId?: string,
+      ) => {
+        const sp = new URLSearchParams()
+        if (params.env) sp.set('env', params.env)
+        if (params.from) sp.set('from', params.from)
+        if (params.to) sp.set('to', params.to)
+        if (params.before) sp.set('before', params.before)
+        if (params.limit) sp.set('limit', String(params.limit))
+        const qs = sp.toString()
+        return apiFetch<{ events: FlagEvent[]; next_before: string | null }>(
+          `/api/v1/manage/flags/${encodeURIComponent(key)}/events${qs ? `?${qs}` : ''}`,
+          token,
+          orgId,
+        )
+      },
+    },
+    evalLogs: {
+      list: (
+        token: string,
+        key: string,
+        params: {
+          env?: string
+          from?: string
+          to?: string
+          before?: string
+          limit?: number
+        },
+        orgId?: string,
+      ) => {
+        const sp = new URLSearchParams()
+        if (params.env) sp.set('env', params.env)
+        if (params.from) sp.set('from', params.from)
+        if (params.to) sp.set('to', params.to)
+        if (params.before) sp.set('before', params.before)
+        if (params.limit) sp.set('limit', String(params.limit))
+        const qs = sp.toString()
+        return apiFetch<{ logs: FlagEvalLog[]; next_before: string | null }>(
+          `/api/v1/manage/flags/${encodeURIComponent(key)}/eval-logs${qs ? `?${qs}` : ''}`,
+          token,
+          orgId,
+        )
+      },
+    },
+    usage: {
+      list: (token: string, env: string, days: number, orgId?: string) =>
+        apiFetch<FlagUsageSeriesResponse>(
+          `/api/v1/manage/flags/usage?env=${encodeURIComponent(env)}&days=${encodeURIComponent(String(days))}`,
+          token,
+          orgId,
+        ),
+    },
+    test: (
+      token: string,
+      key: string,
+      body: { env: string; userId?: string; context: Record<string, unknown> },
+      orgId?: string,
+    ) =>
+      apiFetch<FlagTestResponse>(
+        `/api/v1/manage/flags/${encodeURIComponent(key)}/test`,
+        token,
+        orgId,
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+        },
+      ),
   },
   keys: {
     list: (token: string, orgId?: string) =>
@@ -212,5 +359,9 @@ export const api = {
       apiFetch('/api/v1/manage/orgs/me', token, orgId, {
         method: 'DELETE',
       }),
+  },
+  usage: {
+    monthly: (token: string, orgId?: string) =>
+      apiFetch<UsageMonthlyResponse>('/api/v1/manage/usage/monthly', token, orgId),
   },
 }

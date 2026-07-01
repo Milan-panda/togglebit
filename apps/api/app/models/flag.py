@@ -21,6 +21,12 @@ class UpdateEnvRequest(BaseModel):
     rules: list[dict] | None = None
 
 
+class TestFlagRequest(BaseModel):
+    env: str = Field(default="dev", pattern=r"^(dev|staging|prod)$")
+    userId: str | None = Field(default=None, max_length=200)
+    context: dict = Field(default_factory=dict)
+
+
 class FlagResponse(BaseModel):
     id: str
     key: str

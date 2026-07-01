@@ -29,28 +29,24 @@ export default async function KeysPage({ searchParams }: Props) {
   const canManageKeys = orgRole === 'owner' || orgRole === 'admin'
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-[24px]">API Keys</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage keys for SDK authentication. Each key is scoped to one environment.
+          <h1 className="text-2xl font-semibold tracking-tight">API Keys</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Keys authenticate the SDK. Each key is scoped to one environment.
           </p>
         </div>
         <GenerateKeyDialog canManage={canManageKeys} orgId={orgSlug} />
       </div>
+
       {!canManageKeys && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-          {orgRole === 'developer'
-            ? 'Your role is developer. You can view API keys, but only owners/admins can generate or revoke keys.'
-            : `Your role is ${orgRole}. This section is read-only for you.`}
-        </div>
+        <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          View only ({orgRole}). Only owners and admins can generate or revoke keys.
+        </p>
       )}
-      <KeyList
-        keys={keys}
-        canRevoke={canManageKeys}
-        orgId={orgSlug}
-      />
+
+      <KeyList keys={keys} canRevoke={canManageKeys} orgId={orgSlug} />
     </div>
   )
 }

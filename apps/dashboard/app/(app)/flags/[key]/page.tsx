@@ -5,7 +5,7 @@ import { FlagDetailClient } from './flag-detail-client'
 
 interface Props {
   params: Promise<{ key: string }>
-  searchParams: Promise<{ org?: string }>
+  searchParams: Promise<{ org?: string; env?: string }>
 }
 
 export default async function FlagDetailPage({ params, searchParams }: Props) {
@@ -18,6 +18,7 @@ export default async function FlagDetailPage({ params, searchParams }: Props) {
   const { key } = await params
   const sp = await searchParams
   const orgSlug = sp.org
+  const env = sp.env || 'dev'
 
   let flag
   let orgRole: 'owner' | 'admin' | 'developer' | 'member' = 'member'
@@ -33,6 +34,7 @@ export default async function FlagDetailPage({ params, searchParams }: Props) {
     <FlagDetailClient
       flag={flag}
       orgId={orgSlug}
+      env={env}
       canManage={orgRole === 'owner' || orgRole === 'admin' || orgRole === 'developer'}
       canDelete={orgRole === 'owner' || orgRole === 'admin'}
     />
