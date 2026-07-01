@@ -8,9 +8,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import { ENVIRONMENTS } from '@/lib/constants'
 
-export function EnvSwitcher() {
+export function EnvSwitcher({ className }: { className?: string }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -23,17 +24,20 @@ export function EnvSwitcher() {
   }
 
   return (
-    <Select value={currentEnv} onValueChange={(v) => v && handleChange(v)}>
-      <SelectTrigger className="h-9 w-full rounded-full border border-input bg-background/70 px-3">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {ENVIRONMENTS.map((env) => (
-          <SelectItem key={env} value={env}>
-            {env}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className={cn('flex items-center gap-2', className)}>
+      <span className="text-sm text-muted-foreground">Environment</span>
+      <Select value={currentEnv} onValueChange={(v) => v && handleChange(v)}>
+        <SelectTrigger className="h-8 w-[7.5rem] rounded-lg border border-input bg-background px-2.5 text-sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent alignItemWithTrigger={false} className="min-w-32">
+          {ENVIRONMENTS.map((env) => (
+            <SelectItem key={env} value={env}>
+              {env}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   )
 }

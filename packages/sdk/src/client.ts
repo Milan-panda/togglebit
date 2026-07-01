@@ -1,4 +1,5 @@
 import { LRUCache } from './cache'
+import { buildEvalSearchParams } from './eval-request'
 import type { FlagKey, FlagContext, TogglebitConfig, EvalResponse } from './types'
 
 // Hosted Togglebit API origin (cloud-native default).
@@ -40,10 +41,7 @@ export class TogglebitClient {
     if (cached !== undefined) return cached
 
     try {
-      const params = new URLSearchParams({
-        userId: context.userId,
-        context: JSON.stringify(context),
-      })
+      const params = buildEvalSearchParams(context)
 
       const baseUrl = resolveBaseUrl(this.config)
       const fetchOptions: RequestInit = {

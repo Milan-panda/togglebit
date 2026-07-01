@@ -547,14 +547,19 @@ function OnboardingPageContent() {
                 <div key={member.user_id} className="group/member flex items-center justify-between gap-3 rounded-xl border border-border/80 px-3 py-2 hover:bg-accent/20">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${avatarColorSeed(member.email || member.user_id)}`}>
-                        {(member.email || member.user_id).slice(0, 1).toUpperCase()}
+                      <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${avatarColorSeed(member.email || member.name || member.user_id)}`}>
+                        {(member.name || member.email || member.user_id).slice(0, 1).toUpperCase()}
                       </span>
                       <p className="truncate text-sm font-medium">
-                        {member.email || member.user_id}
+                        {member.name || member.email || member.user_id}
                         {isSelf ? ' (you)' : ''}
                       </p>
                     </div>
+                    {member.email && member.name && (
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {member.email}
+                      </p>
+                    )}
                     <p className="mt-1 text-xs text-muted-foreground">
                       Joined {new Date(member.created_at).toLocaleDateString()}
                     </p>

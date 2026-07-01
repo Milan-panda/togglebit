@@ -42,12 +42,13 @@ async def create_org(
 
     await db.execute(
         """
-        INSERT INTO org_members (org_id, user_id, role, email)
-        VALUES ($1::uuid, $2, 'owner', $3)
+        INSERT INTO org_members (org_id, user_id, role, email, name)
+        VALUES ($1::uuid, $2, 'owner', $3, $4)
         """,
         row["id"],
         auth.user_id,
         auth.email or body.email,
+        auth.name,
     )
 
     return OrgResponse(
@@ -124,7 +125,7 @@ async def list_members(
 ):
     rows = await db.fetch(
         """
-        SELECT user_id, email, role, created_at::text
+        SELECT user_id, email, name, role, created_at::text
         FROM org_members
         WHERE org_id = $1::uuid
         ORDER BY created_at ASC
@@ -135,6 +136,7 @@ async def list_members(
         OrgMemberResponse(
             user_id=row["user_id"],
             email=row["email"],
+            name=row["name"],
             role=row["role"],
             created_at=row["created_at"],
         )
@@ -268,13 +270,14 @@ async def accept_invitation(
 
     await db.execute(
         """
-        INSERT INTO org_members (org_id, user_id, role, email)
-        VALUES ($1::uuid, $2, $3, $4)
+        INSERT INTO org_members (org_id, user_id, role, email, name)
+        VALUES ($1::uuid, $2, $3, $4, $5)
         """,
         invitation["org_id"],
         auth.user_id,
         invitation["role"],
-        invitation["email"],
+        auth.email or invitation["email"],
+        auth.name,
     )
     await db.execute(
         """

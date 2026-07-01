@@ -10,6 +10,7 @@ WORKDIR /workspace
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/dashboard/package.json apps/dashboard/package.json
 
+RUN corepack install
 RUN pnpm install --frozen-lockfile
 
 COPY apps/dashboard apps/dashboard

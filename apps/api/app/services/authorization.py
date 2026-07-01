@@ -66,6 +66,21 @@ async def require_org_membership(
         )
     if not row:
         raise HTTPException(status_code=403, detail="Not a member of any organization")
+
+    if auth.email or auth.name:
+        await db.execute(
+            """
+            UPDATE org_members
+            SET email = COALESCE($3, email),
+                name = COALESCE($4, name)
+            WHERE org_id = $1::uuid AND user_id = $2
+            """,
+            row["org_id"],
+            auth.user_id,
+            auth.email,
+            auth.name,
+        )
+
     return OrgMembership(org_id=row["org_id"], user_id=auth.user_id, role=row["role"])
 
 

@@ -1,7 +1,7 @@
 export type FlagKey = string
 
 export interface FlagContext {
-  userId: string
+  userId?: string
   plan?: string
   country?: string
   email?: string

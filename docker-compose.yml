@@ -13,7 +13,7 @@ services:
       ENVIRONMENT: development
     volumes:
       - ./apps/api:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "python scripts/migrate.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,10 +36,12 @@ services:
     env_file:
       - ./.env
     environment:
+      CI: "true"
       INTERNAL_API_URL: ${INTERNAL_API_URL:-http://api:8000}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
       NEXT_PUBLIC_TOGGLEBIT_API_URL: ${NEXT_PUBLIC_TOGGLEBIT_API_URL:-/api}
       NEXT_PUBLIC_TOGGLEBIT_ENV: ${NEXT_PUBLIC_TOGGLEBIT_ENV:-dev}
+      NEXT_DISABLE_TURBOPACK: "1"
       NODE_ENV: development
     command: sh -c "pnpm install --frozen-lockfile && pnpm --filter ./apps/dashboard dev"
     volumes:

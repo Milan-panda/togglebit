@@ -32,6 +32,24 @@ export function KeyList({ keys, orgId, canRevoke = false }: KeyListProps) {
   const router = useRouter()
   const { getToken } = useAuth()
 
+  function formatLastUsed(ts: string | null): { label: string; title?: string } {
+    if (!ts) return { label: 'Never' }
+    const d = new Date(ts)
+    if (Number.isNaN(d.valueOf())) return { label: ts }
+
+    const diffMs = Date.now() - d.getTime()
+    const diffMin = Math.round(diffMs / 60000)
+    const diffHr = Math.round(diffMs / 3600000)
+    const diffDay = Math.round(diffMs / 86400000)
+
+    let rel = 'Just now'
+    if (diffMin >= 2 && diffMin < 60) rel = `${diffMin}m ago`
+    else if (diffHr >= 1 && diffHr < 48) rel = `${diffHr}h ago`
+    else if (diffDay >= 2) rel = `${diffDay}d ago`
+
+    return { label: rel, title: d.toLocaleString() }
+  }
+
   async function handleRevoke(keyId: string) {
     if (!confirm('Revoke this API key? This cannot be undone.')) return
     const token = await getToken()
@@ -47,29 +65,30 @@ export function KeyList({ keys, orgId, canRevoke = false }: KeyListProps) {
 
   if (keys.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border p-12 text-center">
-        <p className="text-lg font-semibold">No API keys yet</p>
+      <div className="rounded-lg border border-dashed border-border px-6 py-12 text-center">
+        <p className="font-medium">No API keys yet</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Generate your first key to start evaluating flags in the SDK.
+          Generate a key to use with the SDK in your app.
         </p>
       </div>
     )
   }
 
   return (
-    <Table className="rounded-xl border border-border/70 bg-card">
+    <Table className="rounded-lg border border-border bg-card">
       <TableHeader>
         <TableRow className="border-b border-[var(--row-separator)]">
           <TableHead>Name</TableHead>
           <TableHead>Prefix</TableHead>
           <TableHead>Environment</TableHead>
           <TableHead>Created</TableHead>
+          <TableHead>Last used</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {keys.map((k) => (
-          <TableRow key={k.id} className="group border-b border-[var(--row-separator)] hover:bg-accent/20">
+          <TableRow key={k.id} className="border-b border-[var(--row-separator)]">
             <TableCell className="font-medium">{k.name}</TableCell>
             <TableCell>
               <code className="rounded-full border border-border bg-code-bg px-2.5 py-1 font-mono text-xs text-code-foreground">
@@ -84,14 +103,16 @@ export function KeyList({ keys, orgId, canRevoke = false }: KeyListProps) {
             <TableCell className="text-sm text-muted-foreground">
               {new Date(k.created_at).toLocaleDateString()}
             </TableCell>
+            <TableCell className="text-sm text-muted-foreground" title={formatLastUsed(k.last_used_at).title}>
+              {formatLastUsed(k.last_used_at).label}
+            </TableCell>
             <TableCell className="text-right">
               <Button
                 variant="ghost"
-                size="icon"
-                className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                size="icon-sm"
                 onClick={() => handleRevoke(k.id)}
                 disabled={!canRevoke}
-                title={canRevoke ? undefined : 'Your role cannot revoke keys'}
+                title={canRevoke ? 'Revoke key' : 'Your role cannot revoke keys'}
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>

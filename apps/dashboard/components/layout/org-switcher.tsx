@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
+import { Building2 } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -10,11 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import { api, type OrgMembership } from '@/lib/api'
 
 export const ORG_LIST_CHANGED_EVENT = 'orgs-changed'
 
-export function OrgSwitcher() {
+export function OrgSwitcher({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -83,22 +85,64 @@ export function OrgSwitcher() {
     router.push(`${pathname}?${params.toString()}`)
   }
 
-  if (loading || orgs.length === 0) {
+  if (loading) {
     return (
-      <div className="flex h-9 w-full items-center rounded-full border border-input bg-background/70 px-3 text-sm text-muted-foreground">
-        {loading ? 'Loading...' : 'No organization'}
+      <div
+        className={cn(
+          'h-9 animate-pulse rounded-lg bg-muted',
+          collapsed ? 'w-full md:mx-auto md:w-9' : 'w-full',
+        )}
+      />
+    )
+  }
+
+  if (orgs.length === 0) {
+    return (
+      <div
+        className={cn(
+          'flex h-9 items-center rounded-lg border border-input bg-background px-3 text-sm text-muted-foreground',
+          collapsed ? 'w-full md:mx-auto md:w-9 md:justify-center md:px-0' : 'w-full',
+        )}
+      >
+        <span className={cn(collapsed && 'md:sr-only')}>No org</span>
       </div>
     )
   }
 
-  const activeName = orgs.find((o) => o.slug === activeSlug)?.name ?? activeSlug
+  const selectedSlug =
+    orgs.some((o) => o.slug === activeSlug) ? activeSlug : orgs[0].slug
+  const activeName = orgs.find((o) => o.slug === selectedSlug)?.name ?? selectedSlug
+  const activeInitial = activeName.charAt(0).toUpperCase()
 
   return (
-    <Select value={activeSlug} onValueChange={handleChange}>
-      <SelectTrigger className="h-9 w-full rounded-full border border-input bg-background/70 px-3">
-        <SelectValue placeholder="Select org">{activeName}</SelectValue>
+    <Select value={selectedSlug} onValueChange={handleChange}>
+      <SelectTrigger
+        className={cn(
+          'relative h-9 w-full rounded-lg border border-input bg-background px-3',
+          collapsed &&
+            'md:w-9 md:justify-center md:gap-0 md:px-0 md:mx-auto md:[&_[data-slot=select-value]]:hidden md:[&_svg:last-child]:hidden',
+        )}
+        title={collapsed ? activeName : undefined}
+        aria-label={`Organization: ${activeName}`}
+      >
+        {collapsed && (
+          <span className="pointer-events-none absolute inset-0 hidden items-center justify-center md:flex">
+            {orgs.length === 1 ? (
+              <span className="text-xs font-semibold">{activeInitial}</span>
+            ) : (
+              <Building2 className="h-4 w-4" />
+            )}
+          </span>
+        )}
+        <SelectValue placeholder="Select org" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent
+        side={collapsed ? 'right' : 'bottom'}
+        align="start"
+        sideOffset={collapsed ? 8 : 4}
+        alignItemWithTrigger={false}
+        className="min-w-44"
+      >
         {orgs.map((org) => (
           <SelectItem key={org.id} value={org.slug}>
             {org.name}

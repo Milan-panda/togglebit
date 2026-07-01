@@ -30,6 +30,7 @@ class OrgMembershipResponse(BaseModel):
 class OrgMemberResponse(BaseModel):
     user_id: str
     email: str | None = None
+    name: str | None = None
     role: str
     created_at: str
 

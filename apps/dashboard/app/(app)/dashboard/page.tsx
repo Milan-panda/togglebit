@@ -2,10 +2,12 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { FlagTable } from '@/components/flags/flag-table'
 import { CreateFlagDialog } from '@/components/flags/create-flag-dialog'
+import { FlagsFilters } from '@/components/flags/flags-filters'
+import { EnvSwitcher } from '@/components/layout/env-switcher'
 import { api } from '@/lib/api'
 
 interface Props {
-  searchParams: Promise<{ env?: string; org?: string }>
+  searchParams: Promise<{ env?: string; org?: string; q?: string; type?: string; enabled?: string }>
 }
 
 export default async function DashboardPage({ searchParams }: Props) {
@@ -18,13 +20,23 @@ export default async function DashboardPage({ searchParams }: Props) {
   const params = await searchParams
   const env = params.env || 'dev'
   const orgSlug = params.org
+  const q = params.q || ''
+  const type = params.type || 'all'
+  const enabled = params.enabled === 'true' ? true : params.enabled === 'false' ? false : undefined
 
   let flags: Awaited<ReturnType<typeof api.flags.list>>
+  let usageThisMonth = 0
   let orgRole: 'owner' | 'admin' | 'developer' | 'member' = 'member'
   try {
-    flags = await api.flags.list(token, env, orgSlug)
+    flags = await api.flags.list(token, env, orgSlug, {
+      q: q || undefined,
+      type: type !== 'all' ? type : undefined,
+      enabled,
+    })
     const org = await api.orgs.me(token, orgSlug)
     orgRole = org.role
+    const usage = await api.usage.monthly(token, orgSlug)
+    usageThisMonth = usage.current.eval_count
   } catch {
     flags = { flags: [], total: 0 }
   }
@@ -32,27 +44,39 @@ export default async function DashboardPage({ searchParams }: Props) {
     orgRole === 'owner' || orgRole === 'admin' || orgRole === 'developer'
 
   return (
-    <div className="space-y-8">
-      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 md:p-6">
-        <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(85%_70%_at_30%_0%,hsl(var(--foreground)/0.10),transparent_60%),radial-gradient(60%_40%_at_90%_110%,hsl(var(--foreground)/0.06),transparent_60%)]" />
-        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight md:text-[24px]">
-              Feature flags
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create, target, and roll out changes safely per environment.
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Flags</h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <EnvSwitcher />
+            <p className="text-sm text-muted-foreground">
+              {flags.total} flag{flags.total === 1 ? '' : 's'}
+              {usageThisMonth > 0 && (
+                <> · {usageThisMonth.toLocaleString()} evals this month</>
+              )}
             </p>
           </div>
-          <CreateFlagDialog canCreate={orgRole !== 'member'} orgId={orgSlug} />
+          <p className="text-xs text-muted-foreground">
+            Controls which environment&apos;s on/off state and rollout you see in this list.
+          </p>
         </div>
+        <CreateFlagDialog canCreate={orgRole !== 'member'} orgId={orgSlug} />
       </div>
+
       {!canManageFlags && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-          Your current role is <span className="font-semibold">{orgRole}</span>. You can view
-          flags, but only owners/admins/developers can create or update them.
-        </div>
+        <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          View only ({orgRole}). Owners, admins, and developers can edit flags.
+        </p>
       )}
+
+      <FlagsFilters
+        initialQ={q}
+        initialType={type}
+        initialEnabled={
+          params.enabled === 'true' ? 'true' : params.enabled === 'false' ? 'false' : 'all'
+        }
+      />
       <FlagTable
         flags={flags.flags}
         env={env}

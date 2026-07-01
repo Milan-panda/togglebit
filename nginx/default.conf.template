@@ -6,6 +6,10 @@ upstream gatepost_api {
     server ${API_ADDRESS};
 }
 
+# Basic IP-based rate limiting for the eval endpoint.
+# This is intentionally coarse; org/API-key aware limits should live in the API tier.
+limit_req_zone $binary_remote_addr zone=eval_limit:10m rate=20r/s;
+
 server {
     listen 80;
     server_name _;
@@ -21,6 +25,11 @@ server {
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_http_version 1.1;
+
+    location ^~ /api/v1/eval/ {
+        limit_req zone=eval_limit burst=40 nodelay;
+        proxy_pass http://gatepost_api;
+    }
 
     location /api/ {
         proxy_pass http://gatepost_api;

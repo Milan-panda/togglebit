@@ -1,4 +1,5 @@
 import type { FlagKey, FlagContext, TogglebitConfig, EvalResponse } from './types'
+import { buildEvalSearchParams } from './eval-request'
 
 // Hosted Togglebit API origin (cloud-native default).
 // Users should not need to pass `baseUrl` for the hosted product.
@@ -17,15 +18,12 @@ function resolveBaseUrl(config: TogglebitConfig): string {
   return DEFAULT_BASE_URL
 }
 
-export async function getFlag(
+async function evaluateFlag(
   key: FlagKey,
   context: FlagContext,
   config: TogglebitConfig,
 ): Promise<boolean> {
-  const params = new URLSearchParams({
-    userId: context.userId,
-    context: JSON.stringify(context),
-  })
+  const params = buildEvalSearchParams(context)
   const baseUrl = resolveBaseUrl(config)
 
   try {
@@ -46,6 +44,25 @@ export async function getFlag(
   } catch {
     return config.defaultValue ?? false
   }
+}
+
+export interface TogglebitServer {
+  getFlag(key: FlagKey, context: FlagContext): Promise<boolean>
+}
+
+/** Init once (e.g. in lib/togglebit.ts), then call getFlag anywhere on the server. */
+export function createTogglebit(config: TogglebitConfig): TogglebitServer {
+  return {
+    getFlag: (key, context) => evaluateFlag(key, context, config),
+  }
+}
+
+export async function getFlag(
+  key: FlagKey,
+  context: FlagContext,
+  config: TogglebitConfig,
+): Promise<boolean> {
+  return evaluateFlag(key, context, config)
 }
 
 export type { FlagKey, FlagContext, TogglebitConfig, EvalResponse } from './types'

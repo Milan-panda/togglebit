@@ -1,73 +1,80 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
-import { motion } from "framer-motion"
+import { useEffect, useState } from "react"
+import {
+  motion,
+  useReducedMotion,
+  type Variants,
+} from "framer-motion"
 
 import { LANDING_CONTENT } from "@/components/landing/content"
-import {
-  getAnnualSavingsLabel,
-  getBillingCopy,
-  getNavbarState,
-  type BillingPeriod,
-  type NavbarState,
-} from "@/components/landing/landing-state"
+import { getNavbarState, type NavbarState } from "@/components/landing/landing-state"
 
-const sectionVariants = {
-  hidden: { opacity: 0, y: 24 },
+const easeOut = [0.22, 1, 0.36, 1] as const
+
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 16 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.35, ease: "easeOut" as const },
+    transition: { duration: 0.45, ease: easeOut },
   },
 }
 
-const staggerContainerVariants = {
+const stagger: Variants = {
   hidden: {},
   visible: {
-    transition: {
-      staggerChildren: 0.15,
-    },
+    transition: { staggerChildren: 0.08, delayChildren: 0.05 },
   },
 }
 
-/** Conversion page orchestrates the full landing funnel from trigger to CTA. */
+function useMotionConfig() {
+  const reduceMotion = useReducedMotion()
+  return {
+    fadeUp: reduceMotion
+      ? { hidden: { opacity: 1, y: 0 }, visible: { opacity: 1, y: 0 } }
+      : fadeUp,
+    stagger: reduceMotion
+      ? { hidden: {}, visible: { transition: { staggerChildren: 0 } } }
+      : stagger,
+    instant: reduceMotion,
+  }
+}
+
 export function LandingPage({ isSignedIn }: { isSignedIn: boolean }) {
   const [navbarState, setNavbarState] = useState<NavbarState>("expanded")
-  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly")
+  const motionConfig = useMotionConfig()
 
   useEffect(() => {
-    const onScroll = () => {
-      setNavbarState(getNavbarState(window.scrollY))
-    }
-
+    const onScroll = () => setNavbarState(getNavbarState(window.scrollY))
     onScroll()
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
   return (
-    <main className="bg-[#0a0a0a] text-foreground">
-      <LandingStyle />
-      <LandingNavbar navbarState={navbarState} isSignedIn={isSignedIn} />
-      <HeroSection isSignedIn={isSignedIn} />
-      <SocialProofSection />
-      <ProblemSection />
-      <PreviewSection />
-      <BenefitsSection />
-      <HowItWorksSection />
-      <TestimonialsSection />
-      <PricingSection
-        isSignedIn={isSignedIn}
-        billingPeriod={billingPeriod}
-        onBillingChange={setBillingPeriod}
+    <main className="relative overflow-x-hidden bg-background text-foreground">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,oklch(0.55_0.18_292/0.12),transparent)]"
       />
-      <FinalCtaSection isSignedIn={isSignedIn} />
+
+      <LandingNavbar navbarState={navbarState} isSignedIn={isSignedIn} />
+      <HeroSection isSignedIn={isSignedIn} motionConfig={motionConfig} />
+      <WhatItIsSection motionConfig={motionConfig} />
+      <ArchitectureSection motionConfig={motionConfig} />
+      <FeaturesSection motionConfig={motionConfig} />
+      <SdkSection motionConfig={motionConfig} />
+      <HowItWorksSection motionConfig={motionConfig} />
+      <SetupSection isSignedIn={isSignedIn} motionConfig={motionConfig} />
+      <FaqSection motionConfig={motionConfig} />
+      <FinalCtaSection isSignedIn={isSignedIn} motionConfig={motionConfig} />
+      <LandingFooter />
     </main>
   )
 }
 
-/** Conversion header keeps the primary CTA visible while users scroll. */
 function LandingNavbar({
   navbarState,
   isSignedIn,
@@ -75,591 +82,639 @@ function LandingNavbar({
   navbarState: NavbarState
   isSignedIn: boolean
 }) {
-  const navHeightClass = navbarState === "compact" ? "h-[60px]" : "h-[80px]"
   const primaryCta = isSignedIn
     ? LANDING_CONTENT.signedInCta
     : LANDING_CONTENT.nav.primaryCta
+  const isCompact = navbarState === "compact"
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 sm:px-6 lg:px-10">
+    <header className="fixed inset-x-0 top-0 z-50">
       <div
-        className={`mx-auto flex w-full max-w-7xl items-center justify-between rounded-full border border-white/15 bg-white/5 px-4 backdrop-blur-xl transition-all duration-300 sm:px-6 ${navHeightClass}`}
+        className={`mx-auto flex max-w-6xl items-center justify-between px-5 transition-all duration-300 ease-out ${
+          isCompact
+            ? "border-b border-border/80 bg-background/90 py-3 backdrop-blur-md"
+            : "py-5"
+        }`}
       >
         <Link
           href="/"
-          className="text-sm font-semibold tracking-[0.02em] text-white sm:text-base"
+          className="text-[15px] font-semibold tracking-tight text-foreground"
         >
           {LANDING_CONTENT.brand.name}
         </Link>
-        <nav className="hidden items-center gap-6 md:flex">
+
+        <nav className="hidden items-center gap-7 md:flex">
           {LANDING_CONTENT.nav.links.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="text-sm text-white/75 transition-colors duration-200 hover:text-white"
+              className="text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
             >
               {link.label}
             </a>
           ))}
         </nav>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <a
-            href={LANDING_CONTENT.nav.ghostCta.href}
-            className="rounded-full border border-white/20 px-3 py-2 text-sm font-semibold text-white/85 transition-all duration-200 hover:border-white/40 hover:text-white"
+
+        <div className="flex items-center gap-2.5">
+          <Link
+            href={isSignedIn ? "/quickstart" : LANDING_CONTENT.nav.ghostCta.href}
+            className="hidden rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
           >
             {LANDING_CONTENT.nav.ghostCta.label}
-          </a>
-          <Link
-            href={primaryCta.href}
-            className="landing-cta-pulse rounded-full bg-[#7C3AED] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(124,58,237,0.75)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_-12px_rgba(124,58,237,0.9)]"
-          >
-            {primaryCta.label}
           </Link>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Link
+              href={primaryCta.href}
+              className="inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-shadow hover:shadow-md"
+            >
+              {primaryCta.label}
+            </Link>
+          </motion.div>
         </div>
       </div>
     </header>
   )
 }
 
-/** Conversion hero creates immediate emotional resonance and drives first click. */
-function HeroSection({ isSignedIn }: { isSignedIn: boolean }) {
+function HeroSection({
+  isSignedIn,
+  motionConfig,
+}: {
+  isSignedIn: boolean
+  motionConfig: ReturnType<typeof useMotionConfig>
+}) {
   const primaryCta = isSignedIn
     ? LANDING_CONTENT.signedInCta
     : LANDING_CONTENT.hero.primaryCta
 
   return (
-    <section className="landing-hero-mesh relative overflow-hidden px-4 pb-20 pt-36 sm:px-6 lg:px-10 lg:pb-28 lg:pt-44">
+    <section className="px-5 pb-20 pt-32 sm:pb-28 sm:pt-36 lg:pt-40">
       <motion.div
         initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={staggerContainerVariants}
-        className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center"
+        animate="visible"
+        variants={motionConfig.stagger}
+        className="mx-auto grid max-w-6xl gap-14 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-16"
       >
-        <div className="space-y-7">
+        <div className="space-y-6">
           <motion.p
-            variants={sectionVariants}
-            className="inline-flex rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-sm text-white/80"
+            variants={motionConfig.fadeUp}
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground"
           >
-            {LANDING_CONTENT.hero.proofBadge}
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+            {LANDING_CONTENT.brand.badge}
           </motion.p>
+
           <motion.h1
-            variants={sectionVariants}
-            className="max-w-2xl text-5xl font-bold tracking-[-0.03em] text-white sm:text-6xl lg:text-[72px] lg:leading-[0.95]"
+            variants={motionConfig.fadeUp}
+            className="max-w-xl text-[clamp(2.25rem,4.5vw,3.75rem)] font-semibold leading-[1.08] tracking-[-0.03em]"
           >
             {LANDING_CONTENT.hero.headline}
           </motion.h1>
+
           <motion.p
-            variants={sectionVariants}
-            className="max-w-xl text-base leading-[1.7] text-white/70 sm:text-lg"
+            variants={motionConfig.fadeUp}
+            className="max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg"
           >
             {LANDING_CONTENT.hero.subheadline}
           </motion.p>
-          <motion.div variants={sectionVariants} className="flex flex-wrap gap-3">
-            <Link
-              href={primaryCta.href}
-              className="landing-cta-pulse rounded-full bg-[#7C3AED] px-6 py-3 text-base font-semibold text-white shadow-[0_14px_40px_-16px_rgba(124,58,237,0.9)] transition-all duration-200 hover:-translate-y-0.5"
-            >
-              {primaryCta.label}
-            </Link>
-            <a
-              href={LANDING_CONTENT.hero.secondaryCta.href}
-              className="rounded-full border border-white/20 px-6 py-3 text-base font-semibold text-white/90 transition-colors duration-200 hover:border-white/40 hover:text-white"
-            >
-              {LANDING_CONTENT.hero.secondaryCta.label}
-            </a>
-          </motion.div>
-        </div>
-        <motion.div
-          variants={sectionVariants}
-          className="relative rounded-3xl border border-white/15 bg-white/5 p-4 shadow-[0_30px_80px_-35px_rgba(124,58,237,0.75)] backdrop-blur-xl"
-        >
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-black/40 p-4">
-            {LANDING_CONTENT.hero.statCards.map((card, index) => (
-              <motion.div
-                key={card.label}
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.15, duration: 0.3 }}
-                className="rounded-xl border border-white/10 bg-white/3 p-4"
-              >
-                <p className="text-xs uppercase tracking-[0.12em] text-white/45">
-                  {card.label}
-                </p>
-                <p className="mt-2 text-2xl font-semibold text-white">{card.value}</p>
-              </motion.div>
-            ))}
-          </div>
-          <div className="pointer-events-none absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-[#7C3AED]/30 blur-3xl" />
-          <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-sky-500/20 blur-3xl" />
-        </motion.div>
-      </motion.div>
-    </section>
-  )
-}
 
-/** Conversion trust bar lowers skepticism through recognizable social evidence. */
-function SocialProofSection() {
-  return (
-    <section id="proof" className="px-4 py-16 sm:px-6 lg:px-10 lg:py-24">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 rounded-3xl border border-white/10 bg-white/3 p-6 backdrop-blur-xl">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {LANDING_CONTENT.socialProof.logos.map((logo) => (
-            <div
-              key={logo}
-              className="flex h-14 items-center justify-center rounded-xl border border-white/10 bg-black/25 text-sm font-semibold text-white/70"
-            >
-              {logo}
-            </div>
-          ))}
-        </div>
-        <div className="overflow-hidden">
-          <div className="landing-marquee flex min-w-max gap-10 py-2">
-            {[...LANDING_CONTENT.socialProof.ticker, ...LANDING_CONTENT.socialProof.ticker].map(
-              (item, index) => (
-                <p key={`${item}-${index}`} className="text-sm text-white/65">
-                  {item}
-                </p>
-              )
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/** Conversion narrative reframes pain and urgency before presenting solution. */
-function ProblemSection() {
-  return (
-    <section className="px-4 py-20 sm:px-6 lg:px-10 lg:py-32">
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
-        variants={staggerContainerVariants}
-        className="mx-auto max-w-7xl"
-      >
-        <motion.h2
-          variants={sectionVariants}
-          className="max-w-3xl text-4xl font-semibold tracking-[-0.02em] text-white sm:text-5xl lg:text-[48px]"
-        >
-          {LANDING_CONTENT.narrative.title}
-        </motion.h2>
-        <div className="mt-10 grid gap-4 lg:grid-cols-3">
-          {LANDING_CONTENT.narrative.panels.map((panel) => (
-            <motion.article
-              key={panel.step}
-              variants={sectionVariants}
-              className="rounded-2xl border border-white/12 bg-white/3 p-6"
-            >
-              <p className="text-xs tracking-[0.14em] text-white/50">{panel.step}</p>
-              <h3 className="mt-3 text-xl font-semibold text-white">{panel.heading}</h3>
-              <p className="mt-3 text-base leading-[1.7] text-white/70">{panel.body}</p>
-            </motion.article>
-          ))}
-        </div>
-      </motion.div>
-    </section>
-  )
-}
-
-/** Conversion preview gives users a rewarding product glimpse before signup. */
-function PreviewSection() {
-  return (
-    <section id="product" className="px-4 py-20 sm:px-6 lg:px-10 lg:py-32">
-      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-          variants={staggerContainerVariants}
-          className="space-y-6"
-        >
-          <motion.h2
-            variants={sectionVariants}
-            className="text-4xl font-semibold tracking-[-0.02em] text-white sm:text-5xl lg:text-[48px]"
+          <motion.div
+            variants={motionConfig.fadeUp}
+            className="flex flex-wrap items-center gap-3 pt-1"
           >
-            {LANDING_CONTENT.preview.title}
-          </motion.h2>
-          <motion.p variants={sectionVariants} className="text-lg leading-[1.7] text-white/70">
-            {LANDING_CONTENT.preview.body}
-          </motion.p>
-          <motion.div variants={staggerContainerVariants} className="space-y-3">
-            {LANDING_CONTENT.preview.steps.map((step) => (
-              <motion.div
-                key={step.title}
-                variants={sectionVariants}
-                className="rounded-xl border border-white/10 bg-white/3 p-4"
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Link
+                href={primaryCta.href}
+                className="inline-flex rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-shadow hover:shadow-md"
               >
-                <h3 className="text-lg font-semibold text-white">{step.title}</h3>
-                <p className="mt-2 text-base text-white/65">{step.description}</p>
-              </motion.div>
-            ))}
+                {primaryCta.label}
+              </Link>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <a
+                href={LANDING_CONTENT.hero.secondaryCta.href}
+                className="inline-flex rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+              >
+                {LANDING_CONTENT.hero.secondaryCta.label}
+              </a>
+            </motion.div>
           </motion.div>
+
+          <motion.p
+            variants={motionConfig.fadeUp}
+            className="font-mono text-xs text-muted-foreground"
+          >
+            {LANDING_CONTENT.hero.stackNote}
+          </motion.p>
+        </div>
+
+        <motion.div variants={motionConfig.fadeUp}>
+          <ProductPreview />
         </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.35 }}
-          className="relative rounded-3xl border border-white/12 bg-black/35 p-5"
-        >
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-white/2 p-4">
-            <div className="flex items-center justify-between rounded-xl border border-white/8 bg-black/40 px-4 py-3">
-              <p className="text-sm text-white/70">Checkout v2 rollout</p>
-              <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-300">
-                Healthy
-              </span>
-            </div>
-            <div className="rounded-xl border border-white/8 bg-black/40 p-4">
-              <div className="mb-3 flex items-center justify-between text-sm text-white/65">
-                <span>Exposure</span>
-                <span>42%</span>
-              </div>
-              <div className="h-2 rounded-full bg-white/10">
-                <motion.div
-                  initial={{ width: 0 }}
-                  whileInView={{ width: "42%" }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  className="h-2 rounded-full bg-[#7C3AED]"
-                />
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <MiniStat label="Error rate" value="-37%" />
-              <MiniStat label="Latency" value="-21%" />
-              <MiniStat label="Revenue" value="+14%" />
-            </div>
-          </div>
-          <div className="pointer-events-none absolute -bottom-20 right-10 h-44 w-44 rounded-full bg-[#7C3AED]/25 blur-3xl" />
-        </motion.div>
-      </div>
+      </motion.div>
     </section>
   )
 }
 
-/** Conversion stat chips provide fast evidence for decision confidence. */
-function MiniStat({ label, value }: { label: string; value: string }) {
+function ProductPreview() {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/3 p-3">
-      <p className="text-xs uppercase tracking-[0.12em] text-white/45">{label}</p>
-      <p className="mt-2 text-lg font-semibold text-white">{value}</p>
+    <div className="rounded-xl border border-border bg-card p-1 shadow-[0_24px_48px_-24px_oklch(0.2_0.02_292/0.35)]">
+      <div className="flex items-center gap-1.5 border-b border-border px-3 py-2.5">
+        <span className="h-2 w-2 rounded-full bg-border" />
+        <span className="h-2 w-2 rounded-full bg-border" />
+        <span className="h-2 w-2 rounded-full bg-border" />
+        <span className="ml-2 text-xs text-muted-foreground">Rollout dashboard</span>
+      </div>
+      <div className="space-y-3 p-4">
+        <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3.5 py-2.5">
+          <p className="text-sm font-medium">checkout-v2</p>
+          <span className="rounded-md bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
+            Enabled
+          </span>
+        </div>
+        <div className="rounded-lg border border-border bg-background p-3.5">
+          <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+            <span>Rollout</span>
+            <span className="font-medium text-foreground">42%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <motion.div
+              initial={{ width: 0 }}
+              whileInView={{ width: "42%" }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, ease: easeOut, delay: 0.3 }}
+              className="h-full rounded-full bg-primary"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <PreviewMetric label="Type" value="Combined" />
+          <PreviewMetric label="Env" value="prod" />
+          <PreviewMetric label="Rules" value="plan=pro" />
+        </div>
+      </div>
     </div>
   )
 }
 
-/** Conversion benefit cards transform features into tangible user outcomes. */
-function BenefitsSection() {
+function PreviewMetric({ label, value }: { label: string; value: string }) {
   return (
-    <section className="px-4 py-20 sm:px-6 lg:px-10 lg:py-32">
-      <div className="mx-auto max-w-7xl">
-        <motion.h2
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.3 }}
-          className="max-w-3xl text-4xl font-semibold tracking-[-0.02em] text-white sm:text-5xl lg:text-[48px]"
-        >
-          {LANDING_CONTENT.benefits.title}
-        </motion.h2>
-        <div className="mt-10 grid gap-4 lg:grid-cols-2">
-          {LANDING_CONTENT.benefits.cards.map((card) => (
-            <motion.article
-              key={card.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.3 }}
-              className="group rounded-2xl border border-white/12 bg-white/3 p-6 transition-colors duration-200 hover:border-[#7C3AED]/50"
-            >
-              <h3 className="text-2xl font-semibold text-white">{card.title}</h3>
-              <p className="mt-3 text-base leading-[1.7] text-white/70">{card.short}</p>
-              <p className="mt-3 max-h-0 overflow-hidden text-base leading-[1.7] text-white/75 transition-all duration-300 group-hover:max-h-36">
-                {card.detail}
-              </p>
-            </motion.article>
-          ))}
-        </div>
-      </div>
-    </section>
+    <div className="rounded-lg border border-border bg-background px-2 py-2.5">
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="mt-0.5 truncate text-xs font-semibold">{value}</p>
+    </div>
   )
 }
 
-/** Conversion process section lowers cognitive load with a simple 3-step flow. */
-function HowItWorksSection() {
-  return (
-    <section className="px-4 py-20 sm:px-6 lg:px-10 lg:py-32">
-      <div className="mx-auto max-w-7xl">
-        <h2 className="text-4xl font-semibold tracking-[-0.02em] text-white sm:text-5xl lg:text-[48px]">
-          {LANDING_CONTENT.howItWorks.title}
-        </h2>
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {LANDING_CONTENT.howItWorks.steps.map((step) => (
-            <article
-              key={step.number}
-              className="rounded-2xl border border-white/12 bg-white/3 p-6"
-            >
-              <p className="text-sm font-semibold text-[#A78BFA]">{step.number}</p>
-              <h3 className="mt-3 text-xl font-semibold text-white">{step.title}</h3>
-              <p className="mt-2 text-base leading-[1.7] text-white/70">{step.body}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/** Conversion testimonials provide quantified social proof to reduce risk perception. */
-function TestimonialsSection() {
-  const cards = useMemo(
-    () => [...LANDING_CONTENT.testimonials.items, ...LANDING_CONTENT.testimonials.items],
-    []
-  )
-
-  return (
-    <section className="px-4 py-20 sm:px-6 lg:px-10 lg:py-32">
-      <div className="mx-auto max-w-7xl">
-        <h2 className="text-4xl font-semibold tracking-[-0.02em] text-white sm:text-5xl lg:text-[48px]">
-          {LANDING_CONTENT.testimonials.title}
-        </h2>
-        <div className="mt-10 overflow-hidden">
-          <div className="landing-testimonial-track flex min-w-max gap-4 hover:paused">
-            {cards.map((item, index) => (
-              <article
-                key={`${item.name}-${index}`}
-                className="w-[320px] rounded-2xl border border-white/12 bg-white/3 p-5"
-              >
-                <p className="text-base leading-[1.7] text-white/80">{item.quote}</p>
-                <p className="mt-5 text-sm font-semibold text-white">
-                  {item.name} · {item.role}
-                </p>
-                <p className="text-sm text-white/60">{item.company}</p>
-                <p className="mt-2 text-sm font-semibold text-[#A78BFA]">{item.metric}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/** Conversion pricing clarifies value and removes purchase friction at decision time. */
-function PricingSection({
-  isSignedIn,
-  billingPeriod,
-  onBillingChange,
+function WhatItIsSection({
+  motionConfig,
 }: {
-  isSignedIn: boolean
-  billingPeriod: BillingPeriod
-  onBillingChange: (period: BillingPeriod) => void
+  motionConfig: ReturnType<typeof useMotionConfig>
 }) {
-  const billingCopy = getBillingCopy(billingPeriod)
-  const savingsLabel = getAnnualSavingsLabel(
-    LANDING_CONTENT.pricing.annualSavingsPercentage
-  )
-
   return (
-    <section id="pricing" className="px-4 py-20 sm:px-6 lg:px-10 lg:py-32">
-      <div className="mx-auto max-w-7xl">
-        <h2 className="text-4xl font-semibold tracking-[-0.02em] text-white sm:text-5xl lg:text-[48px]">
-          {LANDING_CONTENT.pricing.title}
-        </h2>
-        <p className="mt-4 max-w-3xl text-lg leading-[1.7] text-white/70">
-          {LANDING_CONTENT.pricing.subtitle}
-        </p>
+    <section id="product" className="border-y border-border bg-muted/40 px-5 py-20 sm:py-28">
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={motionConfig.stagger}
+        className="mx-auto max-w-6xl"
+      >
+        <motion.h2
+          variants={motionConfig.fadeUp}
+          className="max-w-lg text-[clamp(1.75rem,3vw,2.5rem)] font-semibold tracking-[-0.02em]"
+        >
+          {LANDING_CONTENT.whatItIs.title}
+        </motion.h2>
+        <motion.p
+          variants={motionConfig.fadeUp}
+          className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground"
+        >
+          {LANDING_CONTENT.whatItIs.body}
+        </motion.p>
 
-        <div className="mt-8 inline-flex items-center rounded-full border border-white/15 bg-white/3 p-1">
-          <ToggleButton
-            isActive={billingPeriod === "monthly"}
-            label={LANDING_CONTENT.pricing.periodToggle.monthly}
-            onClick={() => onBillingChange("monthly")}
-          />
-          <ToggleButton
-            isActive={billingPeriod === "annual"}
-            label={LANDING_CONTENT.pricing.periodToggle.annual}
-            onClick={() => onBillingChange("annual")}
-          />
-          <span className="ml-1 rounded-full bg-[#7C3AED]/20 px-3 py-1 text-xs font-semibold text-[#C4B5FD]">
-            {savingsLabel}
-          </span>
+        <div className="mt-12 grid gap-8 md:grid-cols-3">
+          {LANDING_CONTENT.whatItIs.points.map((point) => (
+            <motion.div key={point.title} variants={motionConfig.fadeUp}>
+              <h3 className="text-base font-semibold">{point.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {point.body}
+              </p>
+            </motion.div>
+          ))}
         </div>
+      </motion.div>
+    </section>
+  )
+}
 
-        <p className="mt-3 text-sm text-white/60">
-          {billingCopy.periodLabel} · {billingCopy.helperLabel}
-        </p>
+function ArchitectureSection({
+  motionConfig,
+}: {
+  motionConfig: ReturnType<typeof useMotionConfig>
+}) {
+  return (
+    <section className="px-5 py-20 sm:py-28">
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        variants={motionConfig.stagger}
+        className="mx-auto max-w-6xl"
+      >
+        <motion.div variants={motionConfig.fadeUp} className="max-w-2xl">
+          <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold tracking-[-0.02em]">
+            {LANDING_CONTENT.architecture.title}
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            {LANDING_CONTENT.architecture.subtitle}
+          </p>
+        </motion.div>
 
-        <div className="mt-10 grid gap-4 lg:grid-cols-3">
-          {LANDING_CONTENT.pricing.tiers.map((tier) => (
-            <article
-              key={tier.name}
-              className={`rounded-2xl border p-6 ${
-                "featured" in tier && tier.featured
-                  ? "border-[#7C3AED]/65 bg-[#7C3AED]/10 shadow-[0_24px_70px_-36px_rgba(124,58,237,0.9)]"
-                  : "border-white/12 bg-white/3"
-              }`}
+        <div className="mt-12 space-y-4">
+          {LANDING_CONTENT.architecture.layers.map((layer) => (
+            <motion.article
+              key={layer.name}
+              variants={motionConfig.fadeUp}
+              className="grid gap-6 rounded-xl border border-border bg-card p-6 md:grid-cols-[140px_1fr_auto] md:items-start"
             >
-              <h3 className="text-xl font-semibold text-white">{tier.name}</h3>
-              <p className="mt-2 text-sm text-white/70">{tier.blurb}</p>
-              <p className="mt-6 text-4xl font-semibold text-white">{tier.price}</p>
-              <p className="mt-1 text-sm text-white/60">{tier.cadence}</p>
-              <ul className="mt-5 space-y-2">
-                {tier.highlights.map((item) => (
-                  <li key={item} className="text-sm text-white/75">
-                    • {item}
+              <div>
+                <p className="text-lg font-semibold">{layer.name}</p>
+                <p className="mt-0.5 font-mono text-xs text-primary">{layer.package}</p>
+              </div>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {layer.description}
+              </p>
+              <ul className="flex flex-wrap gap-2 md:max-w-[220px] md:justify-end">
+                {layer.highlights.map((item) => (
+                  <li
+                    key={item}
+                    className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
+                  >
+                    {item}
                   </li>
                 ))}
               </ul>
-              <Link
-                href={
-                  isSignedIn
-                    ? LANDING_CONTENT.signedInCta.href
-                    : LANDING_CONTENT.hero.primaryCta.href
-                }
-                className="mt-7 inline-flex rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black transition-all duration-200 hover:-translate-y-0.5"
-              >
-                {isSignedIn ? LANDING_CONTENT.signedInCta.label : tier.cta}
-              </Link>
-            </article>
+            </motion.article>
           ))}
         </div>
-
-        <div id="faq" className="mt-10 space-y-3">
-          {LANDING_CONTENT.pricing.faq.map((item) => (
-            <details
-              key={item.question}
-              className="rounded-xl border border-white/12 bg-white/3 p-4"
-            >
-              <summary className="cursor-pointer list-none text-base font-semibold text-white">
-                {item.question}
-              </summary>
-              <p className="mt-2 text-base leading-[1.7] text-white/70">{item.answer}</p>
-            </details>
-          ))}
-        </div>
-      </div>
+      </motion.div>
     </section>
   )
 }
 
-/** Conversion billing switch nudges users toward an annual commitment frame. */
-function ToggleButton({
-  isActive,
-  label,
-  onClick,
+function FeaturesSection({
+  motionConfig,
 }: {
-  isActive: boolean
-  label: string
-  onClick: () => void
+  motionConfig: ReturnType<typeof useMotionConfig>
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
-        isActive ? "bg-white text-black" : "text-white/70 hover:text-white"
-      }`}
-    >
-      {label}
-    </button>
+    <section className="border-t border-border px-5 py-20 sm:py-28">
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        variants={motionConfig.stagger}
+        className="mx-auto max-w-6xl"
+      >
+        <motion.div variants={motionConfig.fadeUp} className="max-w-xl">
+          <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold tracking-[-0.02em]">
+            {LANDING_CONTENT.features.title}
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            {LANDING_CONTENT.features.subtitle}
+          </p>
+        </motion.div>
+
+        <dl className="mt-12 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+          {LANDING_CONTENT.features.items.map((item) => (
+            <motion.div key={item.title} variants={motionConfig.fadeUp}>
+              <dt className="font-semibold">{item.title}</dt>
+              <dd className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                {item.body}
+              </dd>
+            </motion.div>
+          ))}
+        </dl>
+      </motion.div>
+    </section>
   )
 }
 
-/** Conversion footer repeats urgency and risk reversal for final signup push. */
-function FinalCtaSection({ isSignedIn }: { isSignedIn: boolean }) {
+function SdkSection({
+  motionConfig,
+}: {
+  motionConfig: ReturnType<typeof useMotionConfig>
+}) {
+  const { sdk } = LANDING_CONTENT
+
+  return (
+    <section id="sdk" className="border-t border-border bg-muted/40 px-5 py-20 sm:py-28">
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        variants={motionConfig.stagger}
+        className="mx-auto max-w-6xl"
+      >
+        <motion.div variants={motionConfig.fadeUp} className="max-w-xl">
+          <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold tracking-[-0.02em]">
+            {sdk.title}
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            {sdk.subtitle}
+          </p>
+        </motion.div>
+
+        <motion.div
+          variants={motionConfig.fadeUp}
+          className="mt-8 inline-flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 font-mono text-sm"
+        >
+          <span className="text-muted-foreground">$</span>
+          <span>{sdk.installCommand}</span>
+        </motion.div>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          {sdk.runtimes.map((runtime) => (
+            <motion.div
+              key={runtime.name}
+              variants={motionConfig.fadeUp}
+              className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3"
+            >
+              <span className="font-medium">{runtime.name}</span>
+              <span
+                className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                  runtime.status === "available"
+                    ? "bg-success/15 text-success"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {runtime.status === "available" ? "Available" : "Coming soon"}
+              </span>
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="mt-10 grid gap-4 lg:grid-cols-2">
+          <motion.div variants={motionConfig.fadeUp}>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Client component
+            </p>
+            <CodeBlock code={sdk.clientExample} />
+          </motion.div>
+          <motion.div variants={motionConfig.fadeUp}>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Server component
+            </p>
+            <CodeBlock code={sdk.serverExample} />
+          </motion.div>
+        </div>
+      </motion.div>
+    </section>
+  )
+}
+
+function CodeBlock({ code }: { code: string }) {
+  return (
+    <pre className="overflow-x-auto rounded-xl border border-border bg-code-bg p-4 text-[13px] leading-relaxed text-code-foreground">
+      <code>{code}</code>
+    </pre>
+  )
+}
+
+function HowItWorksSection({
+  motionConfig,
+}: {
+  motionConfig: ReturnType<typeof useMotionConfig>
+}) {
+  const steps = LANDING_CONTENT.howItWorks.steps
+
+  return (
+    <section className="px-5 py-20 sm:py-28">
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={motionConfig.stagger}
+        className="mx-auto max-w-6xl"
+      >
+        <motion.h2
+          variants={motionConfig.fadeUp}
+          className="max-w-lg text-[clamp(1.75rem,3vw,2.5rem)] font-semibold tracking-[-0.02em]"
+        >
+          {LANDING_CONTENT.howItWorks.title}
+        </motion.h2>
+
+        <div className="relative mt-14 md:mt-16">
+          <div
+            aria-hidden
+            className="absolute inset-x-[calc(16.67%-1.25rem)] top-5 hidden h-px bg-linear-to-r from-primary/10 via-primary/35 to-primary/10 md:block"
+          />
+
+          <div className="grid gap-10 md:grid-cols-3 md:gap-8">
+            {steps.map((step) => (
+              <motion.div
+                key={step.number}
+                variants={motionConfig.fadeUp}
+                className="relative"
+              >
+                <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-sm ring-4 ring-background">
+                  {step.number}
+                </div>
+                <h3 className="mt-5 text-lg font-semibold">{step.title}</h3>
+                <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
+                  {step.body}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </section>
+  )
+}
+
+function SetupSection({
+  isSignedIn,
+  motionConfig,
+}: {
+  isSignedIn: boolean
+  motionConfig: ReturnType<typeof useMotionConfig>
+}) {
+  const { setup } = LANDING_CONTENT
+  const ctaHref = isSignedIn ? setup.cta.href : "/sign-in"
+
+  return (
+    <section id="setup" className="border-t border-border px-5 py-20 sm:py-28">
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={motionConfig.stagger}
+        className="mx-auto max-w-6xl"
+      >
+        <motion.div variants={motionConfig.fadeUp} className="max-w-xl">
+          <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold tracking-[-0.02em]">
+            {setup.title}
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            {setup.subtitle}
+          </p>
+        </motion.div>
+
+        <ol className="relative mt-12 space-y-0 before:absolute before:bottom-4 before:left-[19px] before:top-4 before:w-px before:bg-border">
+          {setup.steps.map((step) => (
+            <motion.li
+              key={step.number}
+              variants={motionConfig.fadeUp}
+              className="relative flex gap-5 pb-10 last:pb-0"
+            >
+              <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-sm font-semibold text-primary">
+                {step.number}
+              </div>
+              <div className="pt-1.5">
+                <h3 className="font-semibold">{step.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  {step.body}
+                </p>
+              </div>
+            </motion.li>
+          ))}
+        </ol>
+
+        <motion.div variants={motionConfig.fadeUp} className="mt-8">
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Link
+              href={ctaHref}
+              className="inline-flex rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+            >
+              {isSignedIn ? setup.cta.label : "Sign in to get started"}
+            </Link>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </section>
+  )
+}
+
+function FaqSection({
+  motionConfig,
+}: {
+  motionConfig: ReturnType<typeof useMotionConfig>
+}) {
+  return (
+    <section id="faq" className="border-t border-border bg-muted/40 px-5 py-20 sm:py-28">
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        variants={motionConfig.stagger}
+        className="mx-auto max-w-6xl"
+      >
+        <motion.h2
+          variants={motionConfig.fadeUp}
+          className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold tracking-[-0.02em]"
+        >
+          {LANDING_CONTENT.faq.title}
+        </motion.h2>
+
+        <div className="mt-10 max-w-2xl space-y-2">
+          {LANDING_CONTENT.faq.items.map((item) => (
+            <motion.div key={item.question} variants={motionConfig.fadeUp}>
+              <details className="group rounded-lg border border-border bg-card open:bg-muted/30">
+              <summary className="cursor-pointer list-none px-4 py-3.5 text-sm font-medium transition-colors group-open:text-foreground">
+                <span className="flex items-center justify-between gap-4">
+                  {item.question}
+                  <span
+                    aria-hidden
+                    className="text-muted-foreground transition-transform duration-200 group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </span>
+              </summary>
+              <p className="px-4 pb-4 text-sm leading-relaxed text-muted-foreground">
+                {item.answer}
+              </p>
+              </details>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+    </section>
+  )
+}
+
+function FinalCtaSection({
+  isSignedIn,
+  motionConfig,
+}: {
+  isSignedIn: boolean
+  motionConfig: ReturnType<typeof useMotionConfig>
+}) {
   const primaryCta = isSignedIn
     ? LANDING_CONTENT.signedInCta
     : LANDING_CONTENT.finalCta.primaryCta
 
   return (
-    <section className="px-4 pb-24 pt-20 sm:px-6 lg:px-10 lg:pb-28 lg:pt-32">
-      <div className="mx-auto max-w-7xl rounded-3xl border border-white/15 bg-linear-to-br from-[#7C3AED]/30 via-[#7C3AED]/8 to-transparent p-8 sm:p-10 lg:p-14">
-        <h2 className="max-w-3xl text-4xl font-semibold tracking-[-0.02em] text-white sm:text-5xl lg:text-[48px]">
+    <section className="px-5 pb-20 pt-4 sm:pb-28">
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.4 }}
+        variants={motionConfig.fadeUp}
+        className="mx-auto max-w-6xl rounded-2xl border border-border bg-muted/50 px-6 py-12 sm:px-10 sm:py-14"
+      >
+        <h2 className="max-w-lg text-[clamp(1.75rem,3vw,2.5rem)] font-semibold tracking-[-0.02em]">
           {LANDING_CONTENT.finalCta.heading}
         </h2>
-        <p className="mt-4 max-w-2xl text-lg leading-[1.7] text-white/75">
+        <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">
           {LANDING_CONTENT.finalCta.body}
         </p>
-        <div className="mt-7 flex flex-wrap items-center gap-4">
-          <Link
-            href={primaryCta.href}
-            className="landing-cta-pulse rounded-full bg-white px-6 py-3 text-base font-semibold text-black transition-all duration-200 hover:-translate-y-0.5"
-          >
-            {primaryCta.label}
-          </Link>
-          <p className="text-sm font-medium text-white/75">
-            {LANDING_CONTENT.finalCta.microcopy}
-          </p>
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Link
+              href={primaryCta.href}
+              className="inline-flex rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-shadow hover:shadow-md"
+            >
+              {primaryCta.label}
+            </Link>
+          </motion.div>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Link
+              href={LANDING_CONTENT.finalCta.secondaryCta.href}
+              className="inline-flex rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+            >
+              {LANDING_CONTENT.finalCta.secondaryCta.label}
+            </Link>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     </section>
   )
 }
 
-/** Conversion animation styles create motion cues that guide attention to CTA moments. */
-function LandingStyle() {
+function LandingFooter() {
   return (
-    <style jsx global>{`
-      .landing-hero-mesh::before {
-        content: "";
-        position: absolute;
-        inset: -30% -10% auto;
-        height: 520px;
-        background: radial-gradient(circle at 20% 30%, rgba(124, 58, 237, 0.35), transparent 50%),
-          radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.18), transparent 45%),
-          radial-gradient(circle at 50% 80%, rgba(124, 58, 237, 0.2), transparent 45%);
-        filter: blur(10px);
-        pointer-events: none;
-      }
-
-      .landing-cta-pulse {
-        position: relative;
-      }
-
-      .landing-cta-pulse::after {
-        content: "";
-        position: absolute;
-        inset: -4px;
-        border-radius: 9999px;
-        border: 1px solid rgba(196, 181, 253, 0.7);
-        animation: landingPulse 2.4s ease-out infinite;
-      }
-
-      .landing-marquee {
-        animation: landingMarquee 22s linear infinite;
-      }
-
-      .landing-testimonial-track {
-        animation: landingMarquee 30s linear infinite;
-      }
-
-      @keyframes landingPulse {
-        0% {
-          transform: scale(1);
-          opacity: 0.8;
-        }
-        70% {
-          transform: scale(1.05);
-          opacity: 0;
-        }
-        100% {
-          transform: scale(1.05);
-          opacity: 0;
-        }
-      }
-
-      @keyframes landingMarquee {
-        0% {
-          transform: translateX(0);
-        }
-        100% {
-          transform: translateX(-50%);
-        }
-      }
-    `}</style>
+    <footer className="border-t border-border px-5 py-8">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
+        <p className="text-sm text-muted-foreground">
+          © {new Date().getFullYear()} {LANDING_CONTENT.brand.name}
+          <span className="mx-2 text-border">·</span>
+          Built as a personal project
+        </p>
+        <div className="flex gap-6">
+          {LANDING_CONTENT.nav.links.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </footer>
   )
 }

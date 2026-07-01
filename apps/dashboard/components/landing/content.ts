@@ -1,7 +1,7 @@
 export const LANDING_CONTENT = {
   brand: {
     name: "Togglebit",
-    badge: "Built for modern product teams",
+    badge: "Personal project · Feature flags for Next.js",
   },
   signedInCta: {
     label: "Dashboard",
@@ -10,235 +10,216 @@ export const LANDING_CONTENT = {
   nav: {
     links: [
       { label: "Product", href: "#product" },
-      { label: "Proof", href: "#proof" },
-      { label: "Pricing", href: "#pricing" },
+      { label: "SDK", href: "#sdk" },
+      { label: "Setup", href: "#setup" },
       { label: "FAQ", href: "#faq" },
     ],
-    ghostCta: { label: "See it live", href: "#product" },
-    primaryCta: { label: "Start free", href: "/sign-in" },
+    ghostCta: { label: "Quickstart", href: "/quickstart" },
+    primaryCta: { label: "Sign in", href: "/sign-in" },
   },
   hero: {
-    headline: "Ship faster without breaking production",
+    headline: "Ship code without shipping the risk",
     subheadline:
-      "Togglebit gives your team safe rollouts, instant kill switches, and release confidence in one fast control layer.",
-    proofBadge: "Trusted by 1,200+ product and engineering teams",
-    primaryCta: { label: "Start free", href: "/sign-in" },
-    secondaryCta: { label: "See it live", href: "#product" },
-    statCards: [
-      { label: "Rollouts protected this month", value: "4,982,344" },
-      { label: "Average time to rollback", value: "14 sec" },
-      { label: "Deploy confidence score", value: "98.6%" },
-    ],
+      "Togglebit is a feature flag platform I built to separate deploys from releases. Wrap new logic behind a flag, roll it out gradually, and turn it off instantly when something breaks.",
+    primaryCta: { label: "Explore the dashboard", href: "/sign-in" },
+    secondaryCta: { label: "How it works", href: "#product" },
+    stackNote: "SDK · API · Dashboard · npm install togglebit",
   },
-  socialProof: {
-    logos: [
-      "Northstar",
-      "Relay",
-      "Pathwell",
-      "Vectora",
-      "Cloudline",
-      "NimbleStack",
-    ],
-    ticker: [
-      "1,204 teams onboarded",
-      "27,980 flags created this week",
-      "99.99% API reliability",
-      "2.6M users behind safe rollouts today",
-    ],
-  },
-  narrative: {
-    title: "Your release process should feel calm, not fragile",
-    panels: [
+  whatItIs: {
+    title: "What problem does this solve?",
+    body: "Deploying code and releasing a feature are not the same thing. You can merge today and expose the change to 5% of users tomorrow, or keep it off until QA signs off. When a rollout misbehaves, you flip a switch instead of rolling back an entire deploy.",
+    points: [
       {
-        step: "01",
-        heading: "Every deploy feels like a gamble",
-        body: "You ship fast, but one unnoticed edge case can trigger outages, fire drills, and trust loss.",
+        title: "Decouple deploy from release",
+        body: "Merge to main on your schedule. Turn the feature on when you are ready.",
       },
       {
-        step: "02",
-        heading: "Small failures become expensive chaos",
-        body: "Engineers stop shipping boldly, PMs delay launches, and growth stalls because risk compounds with every release.",
+        title: "Shrink the blast radius",
+        body: "Start with internal users, a beta cohort, or a small percentage before going wide.",
       },
       {
-        step: "03",
-        heading: "Togglebit turns launches into controlled experiments",
-        body: "Gate risky code behind flags, roll out in phases, and switch off issues instantly before customers notice.",
+        title: "Kill switches without redeploys",
+        body: "Disable a bad path in seconds from the dashboard while the rest of your app keeps running.",
       },
     ],
   },
-  preview: {
-    title: "See every release move before it goes live",
-    body: "Preview who gets what, when, and why. Scroll to walk through the exact rollout path your team uses in production.",
-    steps: [
+  architecture: {
+    title: "Three pieces, one system",
+    subtitle:
+      "Togglebit is a full stack I designed and built: a lightweight SDK for your app, a fast evaluation API, and a dashboard to manage everything.",
+    layers: [
       {
-        title: "Create a release flag",
-        description: "Wrap risky changes in seconds and keep merge velocity high.",
+        name: "SDK",
+        package: "togglebit",
+        description:
+          "TypeScript-first npm package under 2kb gzipped. React hooks for client components, a zero-dependency server helper for RSC and route handlers.",
+        highlights: ["useFlag hook", "getFlag for server", "Built-in LRU cache", "Fails safe to off"],
       },
       {
-        title: "Target the right audience",
-        description: "Roll out by user segment, environment, or custom attributes.",
+        name: "API",
+        package: "FastAPI",
+        description:
+          "Python backend with a Redis-cached evaluation path and Postgres as source of truth. API keys for SDK access, Clerk JWT for dashboard management.",
+        highlights: ["Sub-ms eval cache", "4 flag types", "Per-environment config", "Audit log"],
       },
       {
-        title: "Monitor and adjust live",
-        description: "Watch health signals and kill bad behavior without redeploying.",
+        name: "Dashboard",
+        package: "Next.js",
+        description:
+          "Management UI where you create flags, tune rollouts, generate API keys, and invite teammates. Includes a built-in quickstart with copy-paste snippets.",
+        highlights: ["Org + RBAC", "Rule builder", "Env switcher", "Live flag toggles"],
       },
     ],
   },
-  benefits: {
-    title: "You will finally ship with speed and control",
-    cards: [
+  features: {
+    title: "What you can do today",
+    subtitle:
+      "Everything below is implemented and working. This is not a mockup or a slide deck.",
+    items: [
       {
-        title: "You will finally launch on your timeline",
-        short: "Decouple deploy from release so deadlines stop blocking engineering.",
-        detail:
-          "Ship code as soon as it is ready, then release when your business team is ready to win.",
+        title: "Boolean flags",
+        body: "Simple on/off switches for any feature or code path.",
       },
       {
-        title: "You will finally test in production safely",
-        short: "Expose changes to tiny cohorts before broad release.",
-        detail:
-          "Reduce blast radius by default and use real behavior to decide when to scale exposure.",
+        title: "Percentage rollouts",
+        body: "Deterministic bucketing so the same user always gets the same experience. Roll from 0% to 100% with a slider.",
       },
       {
-        title: "You will finally stop panic rollbacks",
-        short: "Switch off broken paths instantly from one control plane.",
-        detail:
-          "Protect revenue and user trust with an operational safety net your entire team can use.",
+        title: "Segment targeting",
+        body: "Target users by plan, country, email domain, or any custom attribute you pass in context.",
       },
       {
-        title: "You will finally align product and engineering",
-        short: "Give PMs release control without creating bottlenecks.",
-        detail:
-          "Coordinate launches, experiments, and messaging from one shared workflow.",
+        title: "Combined rules",
+        body: "Stack segment gates with percentage rollouts for fine-grained control.",
+      },
+      {
+        title: "Three environments",
+        body: "Independent config for dev, staging, and prod. Switch environments in the dashboard without leaving your flow.",
+      },
+      {
+        title: "Teams and API keys",
+        body: "Organizations with role-based access. Generate per-environment API keys shown exactly once.",
       },
     ],
+  },
+  sdk: {
+    title: "The SDK",
+    subtitle:
+      "Install with npm, add your API key, and evaluate flags in a few lines. The package ships dual entry points so server code never pulls in React.",
+    installCommand: "npm install togglebit",
+    runtimes: [
+      {
+        name: "Next.js / React",
+        status: "available" as const,
+        description: "Client hooks and server-side evaluation for App Router.",
+      },
+      {
+        name: "Python",
+        status: "coming" as const,
+        description: "Native client for backends and scripts. On the roadmap.",
+      },
+    ],
+    clientExample: `'use client'
+import { useFlag } from 'togglebit'
+
+export function Checkout() {
+  const v2 = useFlag('checkout-v2', { userId: user.id })
+  return v2 ? <NewCheckout /> : <LegacyCheckout />
+}`,
+    serverExample: `import { createTogglebit } from 'togglebit/server'
+
+const togglebit = createTogglebit({
+  apiKey: process.env.TOGGLEBIT_API_KEY!,
+  environment: 'prod',
+})
+
+const enabled = await togglebit.getFlag('checkout-v2', {
+  userId: user.id,
+  plan: 'pro',
+})`,
   },
   howItWorks: {
-    title: "Go from idea to safe release in 3 steps",
+    title: "From flag to rollout in three steps",
     steps: [
       {
         number: "1",
-        title: "Wrap your feature",
-        body: "Add one Togglebit check around new logic.",
+        title: "Create a flag",
+        body: "Name it, pick a type (boolean, percentage, segment, or combined), and configure each environment in the dashboard.",
       },
       {
         number: "2",
-        title: "Choose your rollout",
-        body: "Target internal users, beta cohorts, or percentages.",
+        title: "Wire up the SDK",
+        body: "Wrap your app with TogglebitProvider and call useFlag on the client, or getFlag in a server component.",
       },
       {
         number: "3",
-        title: "Launch with confidence",
-        body: "Scale winners and disable risk instantly when needed.",
+        title: "Roll out and adjust",
+        body: "Start at 0%, watch how it behaves, then increase exposure or flip the kill switch if needed.",
       },
     ],
   },
-  testimonials: {
-    title: "Teams that ship weekly now ship daily",
+  setup: {
+    title: "Setup guide",
+    subtitle:
+      "The dashboard includes a full quickstart with your API key pre-filled. Here is the short version.",
+    steps: [
+      {
+        number: "1",
+        title: "Sign in and create an org",
+        body: "Use the dashboard to set up your workspace and invite teammates if you want.",
+      },
+      {
+        number: "2",
+        title: "Generate an API key",
+        body: "Pick an environment (dev, staging, or prod). Copy the key immediately; it is only shown once.",
+      },
+      {
+        number: "3",
+        title: "Install and evaluate",
+        body: "Run npm install togglebit, add the provider, and check your first flag in under a minute.",
+      },
+    ],
+    cta: { label: "Open quickstart guide", href: "/quickstart" },
+  },
+  faq: {
+    title: "Common questions",
     items: [
       {
-        quote:
-          "Togglebit cut our rollback incidents by 63% in one quarter. Releases are now boring in the best way.",
-        name: "Maya Patel",
-        role: "VP Engineering",
-        company: "Relay",
-        metric: "63% fewer rollbacks",
-      },
-      {
-        quote:
-          "We launched paid plans in 3 regions without downtime. Feature flags gave us confidence to move fast.",
-        name: "Jonas Reed",
-        role: "Product Lead",
-        company: "Northstar",
-        metric: "3-region launch, 0 outages",
-      },
-      {
-        quote:
-          "Our experiment velocity doubled because PMs can coordinate launches without waiting on redeploys.",
-        name: "Ari Kim",
-        role: "Head of Growth",
-        company: "Pathwell",
-        metric: "2x experiment velocity",
-      },
-      {
-        quote:
-          "The kill switch alone paid for itself the first week we used Togglebit in production.",
-        name: "Olivia Chen",
-        role: "CTO",
-        company: "Cloudline",
-        metric: "First-week ROI",
-      },
-    ],
-  },
-  pricing: {
-    title: "Free for all early users",
-    subtitle:
-      "Every plan is currently free while we onboard early teams. Lock in access now and keep shipping safely.",
-    annualSavingsPercentage: 30,
-    periodToggle: {
-      monthly: "Monthly",
-      annual: "Annual",
-    },
-    tiers: [
-      {
-        name: "Starter",
-        blurb: "For teams shipping their first controlled rollouts",
-        price: "$0",
-        cadence: "Free for early users",
-        highlights: [
-          "Unlimited feature flags",
-          "Basic user targeting",
-          "Team seats included",
-        ],
-        cta: "Start free",
-      },
-      {
-        name: "Growth",
-        blurb: "For scaling products that need release confidence",
-        price: "$0",
-        cadence: "Free for early users",
-        highlights: [
-          "Advanced segmentation",
-          "Instant kill switches",
-          "Release analytics",
-        ],
-        cta: "Claim your spot",
-        featured: true,
-      },
-      {
-        name: "Scale",
-        blurb: "For orgs running critical rollouts across environments",
-        price: "$0",
-        cadence: "Free for early users",
-        highlights: [
-          "Enterprise-grade controls",
-          "Priority support",
-          "Migration assistance",
-        ],
-        cta: "Start free",
-      },
-    ],
-    faq: [
-      {
-        question: "How long is early access free?",
+        question: "What is a feature flag?",
         answer:
-          "All early users stay free through our early-access window and receive advance notice before any pricing changes.",
+          "A runtime switch that lets you turn code on or off without redeploying. Your app asks Togglebit whether a flag is enabled for a given user, and you branch accordingly.",
       },
       {
-        question: "Do I need a credit card?",
-        answer: "No credit card is required to start.",
-      },
-      {
-        question: "Can we migrate from another flag provider?",
+        question: "Do I need Next.js?",
         answer:
-          "Yes. We provide guided migration support so you can move safely without release disruption.",
+          "The SDK is built for Next.js App Router first, with React hooks for client components and a separate server entry for RSC. The evaluation API itself is framework-agnostic if you call it directly.",
+      },
+      {
+        question: "What happens if Togglebit is down?",
+        answer:
+          "The SDK fails safe: any network error or missing flag defaults to off. Your app keeps running; the new feature just stays hidden.",
+      },
+      {
+        question: "Is there a Python SDK?",
+        answer:
+          "Not yet. The Python API backend is live, and a Python client is planned. For now, use the TypeScript SDK or call the REST eval endpoint directly.",
+      },
+      {
+        question: "Can I self-host this?",
+        answer:
+          "Yes. The whole stack runs via Docker Compose: nginx, API, dashboard, Postgres, and Redis on a single port. See the repo README for deployment.",
+      },
+      {
+        question: "Is this a commercial product?",
+        answer:
+          "No. Togglebit is a personal project I built to learn full-stack system design and ship something real. The dashboard is open for anyone curious to explore.",
       },
     ],
   },
   finalCta: {
-    heading: "Your next launch can be your calmest launch",
-    body: "Join early teams using Togglebit to ship fast, reduce release anxiety, and protect every deploy.",
-    primaryCta: { label: "Start free", href: "/sign-in" },
-    microcopy: "Still not sure? Read 3 case studies →",
+    heading: "Curious? Open the dashboard and poke around.",
+    body: "Create a flag, generate a key, and follow the quickstart. No pitch deck, no sales call. Just the product.",
+    primaryCta: { label: "Sign in to explore", href: "/sign-in" },
+    secondaryCta: { label: "View quickstart", href: "/quickstart" },
   },
 } as const
