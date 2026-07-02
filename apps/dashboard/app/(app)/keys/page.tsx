@@ -3,9 +3,11 @@ import { redirect } from 'next/navigation'
 import { api, type ApiKey } from '@/lib/api'
 import { KeyList } from '@/components/keys/key-list'
 import { GenerateKeyDialog } from '@/components/keys/generate-key-dialog'
+import { RoleWelcomeBanner } from '@/components/onboarding/role-welcome-banner'
+import { EnvSwitcher } from '@/components/layout/env-switcher'
 
 interface Props {
-  searchParams: Promise<{ org?: string }>
+  searchParams: Promise<{ org?: string; env?: string }>
 }
 
 export default async function KeysPage({ searchParams }: Props) {
@@ -17,6 +19,7 @@ export default async function KeysPage({ searchParams }: Props) {
 
   const params = await searchParams
   const orgSlug = params.org
+  const env = params.env || 'dev'
   let keys: ApiKey[] = []
   let orgRole: 'owner' | 'admin' | 'developer' | 'member' = 'member'
   try {
@@ -27,17 +30,23 @@ export default async function KeysPage({ searchParams }: Props) {
     keys = []
   }
   const canManageKeys = orgRole === 'owner' || orgRole === 'admin'
+  const envKey = keys.find((k) => k.environment === env) ?? keys.find((k) => k.environment === 'dev')
 
   return (
     <div className="space-y-6">
+      {orgRole === 'developer' && (
+        <RoleWelcomeBanner role={orgRole} orgId={orgSlug} />
+      )}
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="space-y-3">
           <h1 className="text-2xl font-semibold tracking-tight">API Keys</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <EnvSwitcher />
+          <p className="text-sm text-muted-foreground">
             Keys authenticate the SDK. Each key is scoped to one environment.
           </p>
         </div>
-        <GenerateKeyDialog canManage={canManageKeys} orgId={orgSlug} />
+        <GenerateKeyDialog canManage={canManageKeys} orgId={orgSlug} defaultEnv={env} />
       </div>
 
       {!canManageKeys && (
@@ -46,7 +55,14 @@ export default async function KeysPage({ searchParams }: Props) {
         </p>
       )}
 
-      <KeyList keys={keys} canRevoke={canManageKeys} orgId={orgSlug} />
+      <KeyList
+        keys={keys}
+        canRevoke={canManageKeys}
+        canManage={canManageKeys}
+        orgId={orgSlug}
+        setupKeyPrefix={envKey?.key_prefix}
+        setupEnv={env}
+      />
     </div>
   )
 }

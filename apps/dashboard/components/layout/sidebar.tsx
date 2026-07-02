@@ -2,15 +2,18 @@
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Flag, Key, Rocket, Settings } from 'lucide-react'
+import { Activity, BarChart3, Flag, Key, Rocket, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OrgSwitcher } from '@/components/layout/org-switcher'
+import { withOrgAndEnv, resolveEnv } from '@/lib/env-url'
 
 const navItems = [
   { href: '/dashboard', label: 'Flags', icon: Flag },
+  { href: '/usage', label: 'Usage', icon: BarChart3 },
+  { href: '/activity', label: 'Activity', icon: Activity },
   { href: '/keys', label: 'API Keys', icon: Key },
   { href: '/quickstart', label: 'Setup', icon: Rocket },
-  { href: '/onboarding', label: 'Settings', icon: Settings },
+  { href: '/onboarding', label: 'Team', icon: Users },
 ]
 
 type SidebarProps = {
@@ -23,12 +26,10 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const selectedOrgId = searchParams.get('org')
+  const env = resolveEnv(searchParams)
 
-  function withOrg(href: string) {
-    if (!selectedOrgId) return href
-    const params = new URLSearchParams()
-    params.set('org', selectedOrgId)
-    return `${href}?${params.toString()}`
+  function navHref(href: string) {
+    return withOrgAndEnv(href, selectedOrgId, env)
   }
 
   return (
@@ -47,7 +48,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
         )}
       >
         <Link
-          href={withOrg('/dashboard')}
+          href={navHref('/dashboard')}
           onClick={onCloseMobile}
           className={cn('flex items-center gap-2.5', collapsed && 'md:justify-center')}
           aria-label="Go to dashboard"
@@ -72,11 +73,16 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
       <nav className="flex-1 space-y-0.5 p-3">
         {navItems.map((item) => {
           const isActive =
-            pathname === item.href || pathname.startsWith(item.href + '/')
+            item.href === '/dashboard'
+              ? pathname === '/dashboard' ||
+                pathname.startsWith('/dashboard/') ||
+                pathname === '/flags' ||
+                pathname.startsWith('/flags/')
+              : pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link
               key={item.href}
-              href={withOrg(item.href)}
+              href={navHref(item.href)}
               title={collapsed ? item.label : undefined}
               onClick={onCloseMobile}
               className={cn(

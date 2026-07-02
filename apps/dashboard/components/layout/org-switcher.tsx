@@ -79,6 +79,10 @@ export function OrgSwitcher({ collapsed = false }: { collapsed?: boolean }) {
 
   function handleChange(slug: string | null) {
     if (!slug) return
+    if (slug === '__create__') {
+      router.push('/onboarding')
+      return
+    }
     setActiveSlug(slug)
     const params = new URLSearchParams(searchParams.toString())
     params.set('org', slug)
@@ -148,6 +152,9 @@ export function OrgSwitcher({ collapsed = false }: { collapsed?: boolean }) {
             {org.name}
           </SelectItem>
         ))}
+        <SelectItem value="__create__" className="text-primary">
+          + Create organization
+        </SelectItem>
       </SelectContent>
     </Select>
   )

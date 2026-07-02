@@ -4,21 +4,25 @@ import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { markSdkSnippetCopied } from '@/lib/onboarding-copy'
 
 export function SetupCodeBlock({
   code,
   language,
   className,
+  orgId,
 }: {
   code: string
   language: string
   className?: string
+  orgId?: string
 }) {
   const [copied, setCopied] = useState(false)
 
   function handleCopy() {
     navigator.clipboard.writeText(code)
     setCopied(true)
+    markSdkSnippetCopied(orgId)
     setTimeout(() => setCopied(false), 2000)
   }
 

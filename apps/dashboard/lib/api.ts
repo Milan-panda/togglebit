@@ -24,6 +24,12 @@ async function apiFetch<T>(
   return res.json()
 }
 
+export interface CreatedByInfo {
+  user_id: string
+  name: string | null
+  email: string | null
+}
+
 export interface Flag {
   id: string
   key: string
@@ -31,6 +37,8 @@ export interface Flag {
   description: string | null
   type: string
   created_at: string
+  created_by?: CreatedByInfo | null
+  archived_at?: string | null
   environments?: Record<string, EnvConfig>
 }
 
@@ -92,6 +100,18 @@ export interface UsageMonthlyResponse {
 export interface FlagUsageSeriesResponse {
   days: string[]
   by_flag_id: Record<string, number[]>
+  totals_by_flag_id: Record<string, number>
+  flags: Array<{ id: string; key: string; name: string }>
+}
+
+export interface ActivityEvent extends FlagEvent {
+  flag_key: string
+  flag_name: string
+}
+
+export interface EvalReasonChainStep {
+  label: string
+  passed: boolean
 }
 
 export interface FlagTestResponse {
@@ -104,6 +124,7 @@ export interface FlagTestResponse {
     summary?: string
     bucket?: number
     rollout_pct?: number
+    chain?: EvalReasonChainStep[]
     rules?: Array<{
       attribute: string
       operator: string
@@ -113,6 +134,19 @@ export interface FlagTestResponse {
       label: string
     }>
   }
+}
+
+export interface OnboardingSteps {
+  create_flag: boolean
+  dev_api_key: boolean
+  sdk_connected: boolean
+  test_eval: boolean
+}
+
+export interface OnboardingStatus {
+  complete: boolean
+  first_flag_key: string | null
+  steps: OnboardingSteps
 }
 
 export interface Org {
@@ -173,12 +207,30 @@ export const api = {
       token: string,
       env: string,
       orgId?: string,
-      params?: { q?: string; type?: string; enabled?: boolean },
+      params?: {
+        q?: string
+        type?: string
+        enabled?: boolean
+        has_rules?: boolean
+        rollout_gt?: number
+        sort?: 'name' | 'created_at' | 'eval_volume'
+        order?: 'asc' | 'desc'
+        limit?: number
+        offset?: number
+        include_archived?: boolean
+      },
     ) => {
       const sp = new URLSearchParams({ env })
       if (params?.q) sp.set('q', params.q)
       if (params?.type) sp.set('type', params.type)
       if (params?.enabled !== undefined) sp.set('enabled', String(params.enabled))
+      if (params?.has_rules !== undefined) sp.set('has_rules', String(params.has_rules))
+      if (params?.rollout_gt !== undefined) sp.set('rollout_gt', String(params.rollout_gt))
+      if (params?.sort) sp.set('sort', params.sort)
+      if (params?.order) sp.set('order', params.order)
+      if (params?.limit !== undefined) sp.set('limit', String(params.limit))
+      if (params?.offset !== undefined) sp.set('offset', String(params.offset))
+      if (params?.include_archived) sp.set('include_archived', 'true')
       return apiFetch<{ flags: Flag[]; total: number }>(
         `/api/v1/manage/flags?${sp.toString()}`,
         token,
@@ -192,6 +244,16 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    update: (
+      token: string,
+      key: string,
+      body: { name?: string; description?: string | null },
+      orgId?: string,
+    ) =>
+      apiFetch<Flag>(`/api/v1/manage/flags/${key}`, token, orgId, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
     updateEnv: (
       token: string,
       key: string,
@@ -203,8 +265,20 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(body),
       }),
-    delete: (token: string, key: string, orgId?: string) =>
-      apiFetch(`/api/v1/manage/flags/${key}`, token, orgId, { method: 'DELETE' }),
+    delete: (token: string, key: string, orgId?: string, permanent = false) =>
+      apiFetch(`/api/v1/manage/flags/${key}${permanent ? '?permanent=true' : ''}`, token, orgId, {
+        method: 'DELETE',
+      }),
+    clone: (
+      token: string,
+      key: string,
+      body: { new_key: string; new_name?: string },
+      orgId?: string,
+    ) =>
+      apiFetch<Flag>(`/api/v1/manage/flags/${encodeURIComponent(key)}/clone`, token, orgId, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     events: {
       list: (
         token: string,
@@ -363,5 +437,39 @@ export const api = {
   usage: {
     monthly: (token: string, orgId?: string) =>
       apiFetch<UsageMonthlyResponse>('/api/v1/manage/usage/monthly', token, orgId),
+  },
+  activity: {
+    list: (
+      token: string,
+      params: {
+        user_id?: string
+        action?: string
+        env?: string
+        from?: string
+        to?: string
+        before?: string
+        limit?: number
+      },
+      orgId?: string,
+    ) => {
+      const sp = new URLSearchParams()
+      if (params.user_id) sp.set('user_id', params.user_id)
+      if (params.action) sp.set('action', params.action)
+      if (params.env) sp.set('env', params.env)
+      if (params.from) sp.set('from', params.from)
+      if (params.to) sp.set('to', params.to)
+      if (params.before) sp.set('before', params.before)
+      if (params.limit) sp.set('limit', String(params.limit))
+      const qs = sp.toString()
+      return apiFetch<{ events: ActivityEvent[]; next_before: string | null }>(
+        `/api/v1/manage/activity${qs ? `?${qs}` : ''}`,
+        token,
+        orgId,
+      )
+    },
+  },
+  onboarding: {
+    status: (token: string, orgId?: string) =>
+      apiFetch<OnboardingStatus>('/api/v1/manage/onboarding/status', token, orgId),
   },
 }

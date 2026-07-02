@@ -24,18 +24,25 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import { refreshOnboardingStatus } from '@/components/onboarding/getting-started-checklist'
 
 export function GenerateKeyDialog({
   canManage = false,
   orgId,
+  defaultEnv = 'dev',
+  defaultOpen = false,
+  buttonLabel = 'Generate Key',
 }: {
   canManage?: boolean
   orgId?: string
+  defaultEnv?: string
+  defaultOpen?: boolean
+  buttonLabel?: string
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
-  const [environment, setEnvironment] = useState('dev')
+  const [environment, setEnvironment] = useState(defaultEnv)
   const [generatedKey, setGeneratedKey] = useState('')
   const [copied, setCopied] = useState(false)
   const router = useRouter()
@@ -52,6 +59,7 @@ export function GenerateKeyDialog({
       const result = await api.keys.create(token, { name, environment }, orgId)
       setGeneratedKey(result.raw_key || '')
       toast.success('API key generated')
+      refreshOnboardingStatus()
       router.refresh()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to generate key'
@@ -72,7 +80,7 @@ export function GenerateKeyDialog({
     if (!isOpen) {
       setGeneratedKey('')
       setName('')
-      setEnvironment('dev')
+      setEnvironment(defaultEnv)
       setCopied(false)
     }
   }
@@ -89,7 +97,7 @@ export function GenerateKeyDialog({
         }
       >
         <Plus className="mr-2 h-4 w-4" />
-        Generate Key
+        {buttonLabel}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

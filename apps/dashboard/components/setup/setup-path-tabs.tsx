@@ -16,15 +16,22 @@ export type SetupPath = 'server' | 'client'
 interface SetupPathTabsProps {
   apiKeyPlaceholder: string
   defaultPath?: SetupPath
+  flagKey?: string
+  environment?: string
+  orgId?: string
 }
 
 export function SetupPathTabs({
   apiKeyPlaceholder,
   defaultPath = 'server',
+  flagKey,
+  environment = 'dev',
+  orgId,
 }: SetupPathTabsProps) {
   const [path, setPath] = useState<SetupPath>(defaultPath)
-  const server = serverSetupSnippets(apiKeyPlaceholder)
-  const client = clientSetupSnippets(apiKeyPlaceholder)
+  const snippetOpts = { flagKey, environment }
+  const server = serverSetupSnippets(apiKeyPlaceholder, snippetOpts)
+  const client = clientSetupSnippets(apiKeyPlaceholder, snippetOpts)
 
   useEffect(() => {
     const hash = window.location.hash.slice(1)
@@ -73,35 +80,35 @@ export function SetupPathTabs({
           />
           <div className="space-y-8">
             <SetupStep number={1} title="Install the package">
-              <SetupCodeBlock code={server.install} language="bash" />
+              <SetupCodeBlock code={server.install} language="bash" orgId={orgId} />
             </SetupStep>
             <SetupStep number={2} title="Create a shared server client">
               <p className="mb-3 text-sm text-muted-foreground">
                 One config file, import everywhere on the server. Same idea as a database client.
               </p>
-              <SetupCodeBlock code={server.client} language="typescript" />
+              <SetupCodeBlock code={server.client} language="typescript" orgId={orgId} />
             </SetupStep>
             <SetupStep number={3} title="Set your API key">
-              <SetupCodeBlock code={server.env} language="bash" />
+              <SetupCodeBlock code={server.env} language="bash" orgId={orgId} />
               <p className="mt-2 text-xs text-muted-foreground">
                 Never commit this file. Keep{' '}
                 <code className="font-mono">TOGGLEBIT_API_KEY</code> server-only.
               </p>
             </SetupStep>
             <SetupStep number={4} title="Evaluate in a Server Component">
-              <SetupCodeBlock code={server.page} language="tsx" />
+              <SetupCodeBlock code={server.page} language="tsx" orgId={orgId} />
             </SetupStep>
             <SetupStep number={5} title="Pass results to client components">
               <p className="mb-3 text-sm text-muted-foreground">
                 Evaluate on the server, pass the boolean as a prop. No API key in the browser.
               </p>
               <div className="space-y-3">
-                <SetupCodeBlock code={server.passToClient} language="tsx" />
-                <SetupCodeBlock code={server.passToClientChild} language="tsx" />
+                <SetupCodeBlock code={server.passToClient} language="tsx" orgId={orgId} />
+                <SetupCodeBlock code={server.passToClientChild} language="tsx" orgId={orgId} />
               </div>
             </SetupStep>
             <SetupStep number={6} title="Use in route handlers">
-              <SetupCodeBlock code={server.routeHandler} language="typescript" />
+              <SetupCodeBlock code={server.routeHandler} language="typescript" orgId={orgId} />
             </SetupStep>
           </div>
         </div>
@@ -126,19 +133,19 @@ export function SetupPathTabs({
           />
           <div className="space-y-8">
             <SetupStep number={1} title="Install the package">
-              <SetupCodeBlock code={client.install} language="bash" />
+              <SetupCodeBlock code={client.install} language="bash" orgId={orgId} />
             </SetupStep>
             <SetupStep number={2} title="Add TogglebitProvider">
-              <SetupCodeBlock code={client.provider} language="tsx" />
+              <SetupCodeBlock code={client.provider} language="tsx" orgId={orgId} />
             </SetupStep>
             <SetupStep number={3} title="Wrap your root layout">
-              <SetupCodeBlock code={client.layout} language="tsx" />
+              <SetupCodeBlock code={client.layout} language="tsx" orgId={orgId} />
             </SetupStep>
             <SetupStep number={4} title="Set a public API key">
-              <SetupCodeBlock code={client.env} language="bash" />
+              <SetupCodeBlock code={client.env} language="bash" orgId={orgId} />
             </SetupStep>
             <SetupStep number={5} title="Use the useFlag hook">
-              <SetupCodeBlock code={client.hook} language="tsx" />
+              <SetupCodeBlock code={client.hook} language="tsx" orgId={orgId} />
               <p className="mt-2 text-xs text-muted-foreground">
                 Returns a boolean. Starts at your default (off), then updates once evaluation
                 completes.

@@ -4,10 +4,9 @@ import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
-import { Copy, Trash2, UserPlus, Shield, Users } from 'lucide-react'
+import { Copy, Trash2, UserPlus, Users } from 'lucide-react'
 import { ORG_LIST_CHANGED_EVENT } from '@/components/layout/org-switcher'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -17,7 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   api,
   type Org,
@@ -26,32 +32,90 @@ import {
   type OrgRole,
   type PendingOrgInvitation,
 } from '@/lib/api'
+import { storeInviteToken, clearStoredInviteToken } from '@/lib/preserve-invite'
+import {
+  avatarColorSeed,
+  formatDate,
+  formatRelativeExpiry,
+  formatRole,
+  memberDisplayName,
+  memberInitial,
+} from '@/lib/team-format'
+import { CreateOrgDialog, CreateOrgWelcome } from '@/components/team/create-org'
+import { PermissionsMatrixModal } from '@/components/team/permissions-matrix-modal'
+import { RoleBadge } from '@/components/team/role-badge'
+import { cn } from '@/lib/utils'
 
-function slugify(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 63)
+function SectionHeading({
+  title,
+  description,
+  action,
+}: {
+  title: string
+  description?: React.ReactNode
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+        {description && (
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        )}
+      </div>
+      {action}
+    </div>
+  )
 }
 
-function roleBadgeClass(role: OrgRole) {
-  if (role === 'owner') return 'bg-muted text-foreground ring-1 ring-border'
-  if (role === 'admin') return 'bg-muted text-foreground ring-1 ring-border'
-  return 'bg-muted text-foreground ring-1 ring-border'
-}
+function PendingInvitesPanel({
+  invites,
+  accepting,
+  onAccept,
+  compact = false,
+}: {
+  invites: PendingOrgInvitation[]
+  accepting: boolean
+  onAccept: (token: string) => void
+  compact?: boolean
+}) {
+  if (invites.length === 0) return null
 
-function avatarColorSeed(value: string) {
-  const palette = [
-    'bg-zinc-600',
-    'bg-zinc-500',
-    'bg-zinc-700',
-    'bg-zinc-400',
-    'bg-zinc-800',
-  ]
-  let hash = 0
-  for (let i = 0; i < value.length; i += 1) hash = (hash << 5) - hash + value.charCodeAt(i)
-  return palette[Math.abs(hash) % palette.length]
+  return (
+    <section className="rounded-lg border border-primary/20 bg-primary/3 p-4 sm:p-5">
+      <SectionHeading
+        title="Pending invitations"
+        description={
+          compact
+            ? 'You have been invited to join other organizations.'
+            : 'Accept an invitation to join an existing team, or create your own organization below.'
+        }
+      />
+      <ul className={cn('space-y-2', compact ? 'mt-4' : 'mt-5')}>
+        {invites.map((pending) => (
+          <li
+            key={pending.id}
+            className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-medium">{pending.org_name}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {formatRole(pending.role)} · {formatRelativeExpiry(pending.expires_at)}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0 sm:min-w-28"
+              onClick={() => onAccept(pending.token)}
+              disabled={accepting}
+            >
+              {accepting ? 'Joining…' : 'Accept invite'}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
 }
 
 function OnboardingPageContent() {
@@ -66,16 +130,10 @@ function OnboardingPageContent() {
   const [pendingInvites, setPendingInvites] = useState<PendingOrgInvitation[]>([])
   const [members, setMembers] = useState<OrgMember[]>([])
   const [invitations, setInvitations] = useState<OrgInvitation[]>([])
-  const [name, setName] = useState('')
-  const [slug, setSlug] = useState('')
-  const [slugTouched, setSlugTouched] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<OrgRole>('member')
   const [inviting, setInviting] = useState(false)
   const [acceptingInvite, setAcceptingInvite] = useState(false)
-  const [showCreateOrgForm, setShowCreateOrgForm] = useState(false)
-
   const loadOrgData = useCallback(async () => {
     const token = await getToken()
     if (!token) return
@@ -123,39 +181,8 @@ function OnboardingPageContent() {
   }, [isLoaded, userId, loadOrgData])
 
   useEffect(() => {
-    if (slugTouched) return
-    setSlug(slugify(name))
-  }, [name, slugTouched])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const s = slug.trim()
-    const n = name.trim()
-    if (!n || !s || s.length < 2) {
-      toast.error('Enter an organization name and a valid slug (letters, numbers, hyphens).')
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      const token = await getToken()
-      if (!token) return
-      const userEmail = user?.primaryEmailAddress?.emailAddress
-      const created = await api.orgs.create(token, { name: n, slug: s, email: userEmail })
-      toast.success('Organization created')
-      setShowCreateOrgForm(false)
-      window.dispatchEvent(new Event(ORG_LIST_CHANGED_EVENT))
-      const params = new URLSearchParams(searchParams.toString())
-      params.set('org', created.slug)
-      router.replace(`/onboarding?${params.toString()}`)
-      router.refresh()
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Could not create organization'
-      toast.error(message)
-    } finally {
-      setSubmitting(false)
-    }
-  }
+    if (inviteToken) storeInviteToken(inviteToken)
+  }, [inviteToken])
 
   async function handleInviteMember(e: React.FormEvent) {
     e.preventDefault()
@@ -182,14 +209,20 @@ function OnboardingPageContent() {
 
   async function handleAcceptInvite(tokenToAccept: string) {
     setAcceptingInvite(true)
+    const pending = pendingInvites.find((p) => p.token === tokenToAccept)
     try {
       const token = await getToken()
       if (!token) return
       await api.orgs.acceptInvitation(token, { token: tokenToAccept })
       toast.success('Invitation accepted')
+      clearStoredInviteToken()
       window.dispatchEvent(new Event(ORG_LIST_CHANGED_EVENT))
-      await loadOrgData()
-      router.replace('/dashboard')
+      const orgSlug = pending?.org_slug
+      if (orgSlug) {
+        router.replace(`/dashboard?org=${encodeURIComponent(orgSlug)}`)
+      } else {
+        router.replace('/dashboard')
+      }
       router.refresh()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Could not accept invitation'
@@ -225,119 +258,12 @@ function OnboardingPageContent() {
       setOrg(null)
       setMembers([])
       setInvitations([])
+      router.push('/onboarding')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Could not delete organization'
       toast.error(message)
     }
   }
-
-  if (!isLoaded || checking) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
-        Loading…
-      </div>
-    )
-  }
-
-  if (!org) {
-    return (
-      <div className="mx-auto max-w-md space-y-5">
-        {pendingInvites.length > 0 && (
-          <Card className="border border-border/80">
-            <CardHeader>
-              <CardTitle>Join invited organization</CardTitle>
-              <CardDescription>
-                You have pending invitations linked to your signed-in email.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {pendingInvites.map((pending) => (
-                <div key={pending.id} className="rounded-xl border border-border/80 p-3">
-                  <p className="text-sm font-medium">{pending.org_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Role: {pending.role} • Expires {new Date(pending.expires_at).toLocaleDateString()}
-                  </p>
-                  <Button
-                    onClick={() => handleAcceptInvite(pending.token)}
-                    disabled={acceptingInvite}
-                    className="mt-3 w-full"
-                  >
-                    {acceptingInvite ? 'Joining...' : `Accept invite to ${pending.org_slug}`}
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {inviteToken && pendingInvites.length === 0 && (
-          <Card className="border border-border/80">
-            <CardHeader>
-              <CardTitle>Invitation link detected</CardTitle>
-              <CardDescription>
-                We could not find a pending invite for your current account email. If you used a
-                different email for the invite, switch account and try again.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={() => handleAcceptInvite(inviteToken)}
-                disabled={acceptingInvite}
-                className="w-full"
-              >
-                {acceptingInvite ? 'Checking...' : 'Try accepting this link'}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card className="border border-border/80">
-          <CardHeader>
-            <CardTitle>Create your organization</CardTitle>
-            <CardDescription>
-              Flags and API keys belong to an organization. You will be the owner.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="org-name">Organization name</Label>
-                <Input
-                  id="org-name"
-                  placeholder="Acme Inc"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoComplete="organization"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="org-slug">URL slug</Label>
-                <Input
-                  id="org-slug"
-                  placeholder="acme-inc"
-                  value={slug}
-                  onChange={(e) => {
-                    setSlugTouched(true)
-                    setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Lowercase letters, numbers, and hyphens. Used in URLs and must be unique.
-                </p>
-              </div>
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? 'Creating…' : 'Create organization'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  const canInvite = org.role === 'owner' || org.role === 'admin'
-  const canDeleteOrg = org.role === 'owner'
-  const canChangeRoles = org.role === 'owner' || org.role === 'admin'
 
   async function handleRoleChange(targetUserId: string, newRole: OrgRole) {
     try {
@@ -368,319 +294,340 @@ function OnboardingPageContent() {
     }
   }
 
-  return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      {pendingInvites.length > 0 && (
-        <Card className="border border-border/80 bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Pending invitations</CardTitle>
-            <CardDescription>
-              You have been invited to join other organizations.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {pendingInvites.map((pending) => (
-              <div key={pending.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-background/80 px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium">{pending.org_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Role: {pending.role} · Expires {new Date(pending.expires_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleAcceptInvite(pending.token)}
-                  disabled={acceptingInvite}
-                >
-                  {acceptingInvite ? 'Joining...' : 'Accept'}
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+  if (!isLoaded || checking) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+        Loading…
+      </div>
+    )
+  }
 
-      <Card className="relative overflow-hidden border border-border/80">
-        <div className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(80%_60%_at_20%_0%,hsl(var(--foreground)/0.1),transparent_60%)]" />
-        <CardHeader>
-          <CardTitle className="relative">Organization</CardTitle>
-          <CardDescription>
-            Manage team members, roles, and invitations.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="relative">
-          <div className="grid gap-3 text-sm sm:grid-cols-3">
-            <div>
-              <p className="text-muted-foreground">Name</p>
-              <p className="font-medium">{org.name}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Slug</p>
-              <p className="font-medium">{org.slug}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Your role</p>
-              <Badge variant="secondary" className={`mt-1 rounded-full px-2.5 ${roleBadgeClass(org.role)}`}>
-                <Shield className="mr-1 h-3 w-3" />
-                {org.role}
-              </Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+  if (!org) {
+    return (
+      <div className="mx-auto max-w-lg space-y-8">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Welcome</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Create an organization to manage feature flags, API keys, and team access.
+          </p>
+        </div>
+
+        <PendingInvitesPanel
+          invites={pendingInvites}
+          accepting={acceptingInvite}
+          onAccept={handleAcceptInvite}
+        />
+
+        {inviteToken && pendingInvites.length === 0 && (
+          <section className="rounded-lg border border-border p-4 sm:p-5">
+            <SectionHeading
+              title="Invitation link detected"
+              description="We could not find a pending invite for your signed-in email. If the invite was sent to a different address, sign in with that account and try again."
+            />
+            <Button
+              className="mt-4"
+              onClick={() => handleAcceptInvite(inviteToken)}
+              disabled={acceptingInvite}
+            >
+              {acceptingInvite ? 'Checking…' : 'Try accepting this link'}
+            </Button>
+          </section>
+        )}
+
+        <CreateOrgWelcome />
+      </div>
+    )
+  }
+
+  const canInvite = org.role === 'owner' || org.role === 'admin'
+  const canDeleteOrg = org.role === 'owner'
+  const canChangeRoles = org.role === 'owner' || org.role === 'admin'
+  const pendingOrgInvitations = invitations.filter((i) => !i.accepted_at)
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage members, roles, and invitations for{' '}
+            <span className="font-medium text-foreground">{org.name}</span>.
+          </p>
+        </div>
+        <PermissionsMatrixModal variant="button" />
+      </div>
+
+      <PendingInvitesPanel
+        invites={pendingInvites}
+        accepting={acceptingInvite}
+        onAccept={handleAcceptInvite}
+        compact
+      />
+
+      <dl className="grid gap-4 rounded-lg border border-border bg-card px-4 py-4 text-sm sm:grid-cols-3 sm:px-5">
+        <div>
+          <dt className="text-muted-foreground">Organization</dt>
+          <dd className="mt-1 font-medium">{org.name}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Slug</dt>
+          <dd className="mt-1 font-mono text-sm">{org.slug}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Your role</dt>
+          <dd className="mt-1">
+            <RoleBadge role={org.role} showIcon />
+          </dd>
+        </div>
+      </dl>
 
       {canInvite && (
-        <Card className="border border-border/80">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <UserPlus className="h-4 w-4" />
-              Invite members
-            </CardTitle>
-            <CardDescription>
-              Invite teammates with a role: owner, admin, developer, or member.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleInviteMember} className="grid gap-3 md:grid-cols-[1fr_180px_auto]">
+        <section className="space-y-4">
+          <SectionHeading
+            title="Invite members"
+            description={
+              <>
+                Send an email invitation with a role.{' '}
+                <PermissionsMatrixModal />
+              </>
+            }
+          />
+          <form
+            onSubmit={handleInviteMember}
+            className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center"
+          >
+            <div className="flex-1">
+              <Label htmlFor="invite-email" className="sr-only">
+                Email address
+              </Label>
               <Input
+                id="invite-email"
                 type="email"
                 placeholder="teammate@company.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 autoComplete="email"
               />
-              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as OrgRole)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {org.role === 'owner' && (
-                    <SelectItem value="owner">owner</SelectItem>
-                  )}
-                  {org.role === 'owner' && (
-                    <SelectItem value="admin">admin</SelectItem>
-                  )}
-                  <SelectItem value="developer">developer</SelectItem>
-                  <SelectItem value="member">member</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button type="submit" className="rounded-full bg-primary hover:bg-[var(--primary-hover)]" disabled={inviting}>
-                {inviting ? 'Inviting...' : 'Invite'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+            </div>
+            <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as OrgRole)}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {org.role === 'owner' && <SelectItem value="owner">{formatRole('owner')}</SelectItem>}
+                {org.role === 'owner' && <SelectItem value="admin">{formatRole('admin')}</SelectItem>}
+                <SelectItem value="developer">{formatRole('developer')}</SelectItem>
+                <SelectItem value="member">{formatRole('member')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button type="submit" disabled={inviting} className="shrink-0">
+              <UserPlus className="mr-2 h-4 w-4" />
+              {inviting ? 'Sending…' : 'Send invite'}
+            </Button>
+          </form>
+        </section>
       )}
 
-      <Card className="border border-border/80">
-        <CardHeader>
-          <CardTitle className="text-lg">Create another organization</CardTitle>
-          <CardDescription>
-            You can own and manage multiple organizations from one account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!showCreateOrgForm ? (
-            <Button variant="outline" onClick={() => setShowCreateOrgForm(true)}>
-              New organization
-            </Button>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-org-name">Organization name</Label>
-                <Input
-                  id="new-org-name"
-                  placeholder="Acme Labs"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoComplete="organization"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-org-slug">URL slug</Label>
-                <Input
-                  id="new-org-slug"
-                  placeholder="acme-labs"
-                  value={slug}
-                  onChange={(e) => {
-                    setSlugTouched(true)
-                    setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
-                  }}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? 'Creating…' : 'Create'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowCreateOrgForm(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          )}
-        </CardContent>
-      </Card>
+      <section className="space-y-4">
+        <SectionHeading
+          title={`Members (${members.length})`}
+          description="Everyone with access to this organization."
+        />
+        {members.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
+            <Users className="mx-auto h-5 w-5 text-muted-foreground" />
+            <p className="mt-2 font-medium">No members yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Invite teammates to collaborate on flags and keys.
+            </p>
+          </div>
+        ) : (
+          <Table className="rounded-lg border border-border bg-card">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {members.map((member) => {
+                const isSelf = user?.id === member.user_id
+                const isOwner = member.role === 'owner'
+                const canEditThis =
+                  canChangeRoles &&
+                  !isSelf &&
+                  !isOwner &&
+                  !(org.role === 'admin' && member.role === 'admin')
+                const seed = member.email || member.name || member.user_id
 
-      <Card className="border border-border/80">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Users className="h-4 w-4" />
-            Members
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No members yet.</p>
-          ) : (
-            members.map((member) => {
-              const isSelf = user?.id === member.user_id
-              const isOwner = member.role === 'owner'
-              const canEditThis =
-                canChangeRoles && !isSelf && !isOwner &&
-                !(org.role === 'admin' && member.role === 'admin')
-
-              return (
-                <div key={member.user_id} className="group/member flex items-center justify-between gap-3 rounded-xl border border-border/80 px-3 py-2 hover:bg-accent/20">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${avatarColorSeed(member.email || member.name || member.user_id)}`}>
-                        {(member.name || member.email || member.user_id).slice(0, 1).toUpperCase()}
-                      </span>
-                      <p className="truncate text-sm font-medium">
-                        {member.name || member.email || member.user_id}
-                        {isSelf ? ' (you)' : ''}
-                      </p>
-                    </div>
-                    {member.email && member.name && (
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {member.email}
-                      </p>
-                    )}
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Joined {new Date(member.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {canEditThis ? (
-                      <Select
-                        value={member.role}
-                        onValueChange={(v) => handleRoleChange(member.user_id, v as OrgRole)}
-                      >
-                        <SelectTrigger className="h-7 w-[120px] rounded-full text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {org.role === 'owner' && (
-                            <SelectItem value="admin">admin</SelectItem>
-                          )}
-                          <SelectItem value="developer">developer</SelectItem>
-                          <SelectItem value="member">member</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge variant="secondary" className={`rounded-full px-2.5 ${roleBadgeClass(member.role)}`}>{member.role}</Badge>
-                    )}
-                    {canEditThis && (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="opacity-60 hover:text-destructive md:opacity-0 md:group-hover/member:opacity-100"
-                        onClick={() => handleRemoveMember(member.user_id)}
-                        title="Remove member"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </CardContent>
-      </Card>
-
-      {canInvite && (
-        <Card className="border border-border/80">
-          <CardHeader>
-            <CardTitle className="text-lg">Invitations</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {invitations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No invitations yet.</p>
-            ) : (
-              invitations.map((invitation) => {
-                const invitationLink =
-                  typeof window === 'undefined'
-                    ? invitation.token
-                    : `${window.location.origin}/onboarding?invite=${invitation.token}`
                 return (
-                  <div key={invitation.id} className="space-y-2 rounded-xl border border-border/80 px-3 py-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{invitation.email}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Role: {invitation.role}
-                          {invitation.accepted_at
-                            ? ` • accepted ${new Date(invitation.accepted_at).toLocaleDateString()}`
-                            : ' • pending'}
-                        </p>
+                  <TableRow key={member.user_id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={cn(
+                            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white',
+                            avatarColorSeed(seed),
+                          )}
+                        >
+                          {memberInitial(member)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">
+                            {memberDisplayName(member)}
+                            {isSelf && (
+                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                                (you)
+                              </span>
+                            )}
+                          </p>
+                          {member.email && member.name && (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {member.email}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      {!invitation.accepted_at && (
+                    </TableCell>
+                    <TableCell>
+                      {canEditThis ? (
+                        <Select
+                          value={member.role}
+                          onValueChange={(v) => handleRoleChange(member.user_id, v as OrgRole)}
+                        >
+                          <SelectTrigger className="h-8 w-34">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {org.role === 'owner' && (
+                              <SelectItem value="admin">{formatRole('admin')}</SelectItem>
+                            )}
+                            <SelectItem value="developer">{formatRole('developer')}</SelectItem>
+                            <SelectItem value="member">{formatRole('member')}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <RoleBadge role={member.role} />
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(member.created_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {canEditThis && (
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="text-destructive"
-                          onClick={() => handleRevokeInvitation(invitation.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemoveMember(member.user_id)}
+                          title="Remove member"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
-                    </div>
-                    {!invitation.accepted_at && (
-                      <div className="flex items-center gap-2">
-                        <Input readOnly value={invitationLink} className="font-mono text-xs" />
-                        <Button
-                          variant="outline"
-                          size="icon-sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(invitationLink)
-                            toast.success('Invite link copied')
-                          }}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                    </TableCell>
+                  </TableRow>
                 )
-              })
-            )}
-          </CardContent>
-        </Card>
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </section>
+
+      {canInvite && (
+        <section className="space-y-4">
+          <SectionHeading
+            title={`Invitations (${pendingOrgInvitations.length})`}
+            description="Outstanding email invitations that have not been accepted yet."
+          />
+          {pendingOrgInvitations.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
+              <p className="font-medium">No pending invitations</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Invitations you send will appear here until they are accepted.
+              </p>
+            </div>
+          ) : (
+            <Table className="rounded-lg border border-border bg-card">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Sent</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingOrgInvitations.map((invitation) => {
+                  const invitationLink =
+                    typeof window === 'undefined'
+                      ? invitation.token
+                      : `${window.location.origin}/onboarding?invite=${invitation.token}`
+
+                  return (
+                    <TableRow key={invitation.id}>
+                      <TableCell className="font-medium">{invitation.email}</TableCell>
+                      <TableCell>
+                        <RoleBadge role={invitation.role} />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(invitation.created_at)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatRelativeExpiry(invitation.expires_at)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title="Copy invite link"
+                            onClick={() => {
+                              navigator.clipboard.writeText(invitationLink)
+                              toast.success('Invite link copied')
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-muted-foreground hover:text-destructive"
+                            title="Revoke invitation"
+                            onClick={() => handleRevokeInvitation(invitation.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </section>
       )}
 
+      <CreateOrgDialog />
+
       {canDeleteOrg && (
-        <Card className="border border-destructive/40 bg-destructive/5">
-          <CardHeader>
-            <CardTitle className="text-lg text-destructive">Danger zone</CardTitle>
-            <CardDescription>
-              Deleting an organization permanently removes all flags, keys, and member access.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="outline"
-              className="rounded-full border-destructive/60 text-destructive hover:bg-destructive hover:text-white"
-              onClick={handleDeleteOrganization}
-            >
-              Delete organization
-            </Button>
-          </CardContent>
-        </Card>
+        <section className="rounded-lg border border-destructive/30 p-4 sm:p-5">
+          <SectionHeading
+            title="Delete organization"
+            description="Permanently removes all flags, API keys, and member access. This cannot be undone."
+          />
+          <Button
+            variant="outline"
+            className="mt-4 border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            onClick={handleDeleteOrganization}
+          >
+            Delete {org.name}
+          </Button>
+        </section>
       )}
     </div>
   )
@@ -691,7 +638,7 @@ export default function OnboardingPage() {
     <Suspense
       fallback={
         <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
-          Loading...
+          Loading…
         </div>
       }
     >

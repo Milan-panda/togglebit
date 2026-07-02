@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { ENVIRONMENTS } from '@/lib/constants'
+import { storeEnv } from '@/lib/env-url'
 
 export function EnvSwitcher({ className }: { className?: string }) {
   const router = useRouter()
@@ -18,6 +19,7 @@ export function EnvSwitcher({ className }: { className?: string }) {
   const currentEnv = searchParams.get('env') || 'dev'
 
   function handleChange(value: string) {
+    storeEnv(value)
     const params = new URLSearchParams(searchParams.toString())
     params.set('env', value)
     router.push(`${pathname}?${params.toString()}`)
