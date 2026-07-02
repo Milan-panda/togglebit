@@ -78,7 +78,12 @@ export const FLAG_TYPES = [
   },
 ] as const
 
-export function serverSetupSnippets(apiKeyPlaceholder: string) {
+export function serverSetupSnippets(
+  apiKeyPlaceholder: string,
+  opts?: { flagKey?: string; environment?: string },
+) {
+  const flagKey = opts?.flagKey ?? 'dashboard-v2'
+  const environment = opts?.environment ?? 'dev'
   return {
     install: 'npm install togglebit',
     client: `// lib/togglebit.ts
@@ -86,7 +91,7 @@ import { createTogglebit } from 'togglebit/server'
 
 export const togglebit = createTogglebit({
   apiKey: process.env.TOGGLEBIT_API_KEY!,
-  environment: 'dev',
+  environment: '${environment}',
   cacheTtl: 30,
   defaultValue: false,
 })`,
@@ -97,7 +102,7 @@ import { togglebit } from '@/lib/togglebit'
 
 export default async function DashboardPage() {
   const user = await getUser()
-  const showV2 = await togglebit.getFlag('dashboard-v2', {
+  const showV2 = await togglebit.getFlag('${flagKey}', {
     userId: user.id,
     plan: user.plan,
   })
@@ -109,7 +114,7 @@ import { togglebit } from '@/lib/togglebit'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
-  const enabled = await togglebit.getFlag('beta-api', {
+  const enabled = await togglebit.getFlag('${flagKey}', {
     userId: 'anon',
   })
   if (!enabled) {
@@ -123,7 +128,7 @@ import { CheckoutButton } from './checkout-button'
 
 export default async function Page() {
   const user = await getUser()
-  const useV2 = await togglebit.getFlag('checkout-v2', { userId: user.id })
+  const useV2 = await togglebit.getFlag('${flagKey}', { userId: user.id })
   return <CheckoutButton variant={useV2 ? 'v2' : 'v1'} />
 }`,
     passToClientChild: `// checkout-button.tsx
@@ -135,7 +140,12 @@ export function CheckoutButton({ variant }: { variant: 'v1' | 'v2' }) {
   }
 }
 
-export function clientSetupSnippets(apiKeyPlaceholder: string) {
+export function clientSetupSnippets(
+  apiKeyPlaceholder: string,
+  opts?: { flagKey?: string; environment?: string },
+) {
+  const flagKey = opts?.flagKey ?? 'checkout-v2'
+  const environment = opts?.environment ?? 'dev'
   return {
     install: 'npm install togglebit',
     provider: `// app/providers.tsx
@@ -147,7 +157,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <TogglebitProvider
       apiKey={process.env.NEXT_PUBLIC_TOGGLEBIT_API_KEY!}
-      environment="dev"
+      environment="${environment}"
     >
       {children}
     </TogglebitProvider>
@@ -172,7 +182,7 @@ NEXT_PUBLIC_TOGGLEBIT_API_KEY=${apiKeyPlaceholder.replace('your_full_key_here', 
 import { useFlag } from 'togglebit'
 
 export function Checkout() {
-  const v2 = useFlag('checkout-v2', {
+  const v2 = useFlag('${flagKey}', {
     userId: user.id,
     plan: user.plan,
   })

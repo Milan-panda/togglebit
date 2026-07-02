@@ -56,9 +56,27 @@ class FlagUsageSeriesPoint(BaseModel):
     eval_count: int
 
 
+class FlagUsageMeta(BaseModel):
+    id: str
+    key: str
+    name: str
+
+
 class FlagUsageSeriesResponse(BaseModel):
     days: list[str]
     by_flag_id: dict[str, list[int]]
+    totals_by_flag_id: dict[str, int] = Field(default_factory=dict)
+    flags: list[FlagUsageMeta] = Field(default_factory=list)
+
+
+class ActivityEventResponse(FlagEventResponse):
+    flag_key: str
+    flag_name: str
+
+
+class ActivityEventListResponse(BaseModel):
+    events: list[ActivityEventResponse]
+    next_before: str | None = None
 
 
 class FlagTestResponse(BaseModel):

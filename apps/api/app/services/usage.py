@@ -1,9 +1,15 @@
 import asyncio
 import json
-from datetime import date
+from datetime import date, timedelta
 
 from app.database import get_pool
 from app.redis import get_redis
+
+
+def usage_day_range(days: int) -> list[str]:
+    """Inclusive day strings for the last `days` calendar days ending today."""
+    today = date.today()
+    return [(today - timedelta(days=offset)).isoformat() for offset in range(days - 1, -1, -1)]
 
 
 async def track_eval(org_id: str) -> None:
@@ -18,6 +24,43 @@ async def track_flag_eval(org_id: str, flag_id: str, env: str) -> None:
     r = get_redis()
     day = date.today().isoformat()
     await r.incr(f"fevals:{org_id}:{flag_id}:{env}:{day}")
+
+
+async def read_pending_flag_eval_counts(
+    org_id: str,
+    env: str,
+    days: int,
+) -> dict[str, dict[str, int]]:
+    """Read unflushed per-flag daily counts from Redis (does not delete keys)."""
+    r = get_redis()
+    pending: dict[str, dict[str, int]] = {}
+    prefix = f"fevals:{org_id}:"
+
+    for day in usage_day_range(days):
+        cursor = "0"
+        while True:
+            cursor, keys = await r.scan(
+                cursor=cursor,
+                match=f"{prefix}*:{env}:{day}",
+                count=200,
+            )
+            for key in keys:
+                if isinstance(key, bytes):
+                    key = key.decode()
+                count = await r.get(key)
+                if not count:
+                    continue
+                parts = key.split(":")
+                if len(parts) != 5:
+                    continue
+                flag_id = parts[2]
+                pending.setdefault(flag_id, {})[day] = pending.get(flag_id, {}).get(day, 0) + int(
+                    count
+                )
+            if cursor in ("0", 0):
+                break
+
+    return pending
 
 
 async def log_flag_eval(

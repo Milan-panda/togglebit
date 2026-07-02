@@ -18,6 +18,10 @@ import {
   FLAG_TYPES,
   SETUP_SECTIONS,
 } from '@/components/setup/setup-content'
+import { TROUBLESHOOTING_ITEMS } from '@/components/setup/setup-troubleshooting'
+import { SetupVerifyConnection } from '@/components/setup/setup-verify-connection'
+import { GenerateKeyDialog } from '@/components/keys/generate-key-dialog'
+import { EnvSwitcher } from '@/components/layout/env-switcher'
 import {
   EvalFlowDiagram,
   FlagTypeDiagram,
@@ -28,14 +32,28 @@ interface Props {
   keyPrefix?: string
   hasKeys: boolean
   orgId?: string
+  environment?: string
+  firstFlagKey?: string | null
 }
 
-export function QuickstartClient({ keyPrefix, hasKeys, orgId }: Props) {
+export function QuickstartClient({
+  keyPrefix,
+  hasKeys,
+  orgId,
+  environment = 'dev',
+  firstFlagKey,
+}: Props) {
   const apiKeyPlaceholder = keyPrefix
     ? `${keyPrefix}...your_full_key_here`
-    : 'tb_dev_your_api_key_here'
-  const keysHref = orgId ? `/keys?org=${encodeURIComponent(orgId)}` : '/keys'
-  const flagsHref = orgId ? `/dashboard?org=${encodeURIComponent(orgId)}` : '/dashboard'
+    : `tb_${environment}_your_api_key_here`
+  const keysHref = orgId ? `/keys?org=${encodeURIComponent(orgId)}&env=${environment}` : '/keys'
+  const flagsHref = orgId ? `/dashboard?org=${encodeURIComponent(orgId)}&env=${environment}` : '/dashboard'
+  const testHref =
+    firstFlagKey && orgId
+      ? `/flags/${firstFlagKey}?org=${encodeURIComponent(orgId)}&env=${environment}&test=1`
+      : firstFlagKey
+        ? `/flags/${firstFlagKey}?env=${environment}&test=1`
+        : flagsHref
 
   return (
     <div className="relative">
@@ -57,6 +75,9 @@ export function QuickstartClient({ keyPrefix, hasKeys, orgId }: Props) {
                 Everything you need to evaluate flags in a Next.js app: install the SDK,
                 wire up server or client evaluation, and understand how each flag type behaves.
               </p>
+              <div className="mt-4">
+                <EnvSwitcher />
+              </div>
             </div>
           </header>
 
@@ -113,14 +134,28 @@ export function QuickstartClient({ keyPrefix, hasKeys, orgId }: Props) {
               />
             </div>
             {!hasKeys && (
-              <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                <p className="text-sm text-muted-foreground">
-                  You have not generated an API key yet. Snippets below use placeholders until you
-                  create one for your environment.
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+                <p className="flex-1 text-sm text-muted-foreground">
+                  Generate a key for {environment} to use in the snippets below.
                 </p>
+                <GenerateKeyDialog
+                  canManage
+                  orgId={orgId}
+                  defaultEnv={environment}
+                  buttonLabel={`Generate ${environment} key`}
+                />
               </div>
             )}
+            {firstFlagKey && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Test your first flag:</span>
+                <Link href={testHref} className="font-medium text-primary hover:underline">
+                  Open {firstFlagKey} test panel
+                </Link>
+              </div>
+            )}
+            <SetupVerifyConnection flagKey={firstFlagKey ?? undefined} env={environment} orgId={orgId} />
           </SetupSection>
 
           <SetupSection
@@ -128,7 +163,12 @@ export function QuickstartClient({ keyPrefix, hasKeys, orgId }: Props) {
             title="SDK setup"
             description="Pick how you evaluate flags. Server-side is the recommended default; client-side works for interactive UI that reacts after mount."
           >
-            <SetupPathTabs apiKeyPlaceholder={apiKeyPlaceholder} />
+            <SetupPathTabs
+              apiKeyPlaceholder={apiKeyPlaceholder}
+              orgId={orgId}
+              environment={environment}
+              flagKey={firstFlagKey ?? undefined}
+            />
           </SetupSection>
 
           <SetupSection
@@ -267,6 +307,26 @@ export function QuickstartClient({ keyPrefix, hasKeys, orgId }: Props) {
 })`}
             />
           </SetupSection>
+
+          <section id="troubleshooting" className="scroll-mt-24 space-y-4">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight">Troubleshooting</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Common issues when wiring up the SDK.
+              </p>
+            </div>
+            <div className="space-y-3">
+              {TROUBLESHOOTING_ITEMS.map((item) => (
+                <details
+                  key={item.title}
+                  className="rounded-xl border border-border bg-muted/20 px-4 py-3"
+                >
+                  <summary className="cursor-pointer text-sm font-medium">{item.title}</summary>
+                  <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
+                </details>
+              ))}
+            </div>
+          </section>
         </div>
 
         <aside className="hidden xl:sticky xl:top-6 xl:block xl:w-[200px] xl:shrink-0">

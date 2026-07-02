@@ -124,6 +124,7 @@ All routes require a Clerk JWT + `X-Org-Id` header (slug or UUID), and are wrapp
 | `/api/v1/manage/flags?env=...` | GET | any member |
 | `/api/v1/manage/flags` | POST | owner / admin / developer |
 | `/api/v1/manage/flags/{key}` | GET | any member |
+| `/api/v1/manage/flags/{key}` | PATCH | owner / admin / developer |
 | `/api/v1/manage/flags/{key}/environments/{env}` | PATCH | owner / admin / developer |
 | `/api/v1/manage/flags/{key}` | DELETE | owner / admin |
 

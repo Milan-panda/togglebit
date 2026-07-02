@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api'
 import { ENVIRONMENTS } from '@/lib/constants'
+import { refreshOnboardingStatus } from '@/components/onboarding/getting-started-checklist'
 import { RuleBuilder } from '@/components/flags/rule-builder'
 import { cn } from '@/lib/utils'
 import type { Rule } from '@/lib/api'
@@ -45,17 +46,47 @@ const FLAG_TYPES = [
   },
 ] as const
 
+const FLAG_TEMPLATES = [
+  {
+    id: 'kill-switch',
+    label: 'Kill switch',
+    hint: 'Boolean on/off',
+    type: 'boolean',
+    rolloutPct: 0,
+    rules: [] as Rule[],
+  },
+  {
+    id: 'beta-rollout',
+    label: 'Beta rollout',
+    hint: '50% gradual rollout',
+    type: 'percentage',
+    rolloutPct: 50,
+    rules: [] as Rule[],
+  },
+  {
+    id: 'pro-users',
+    label: 'Pro users only',
+    hint: 'Segment by plan',
+    type: 'segment',
+    rolloutPct: 0,
+    rules: [{ attribute: 'plan', operator: 'in', value: ['pro', 'enterprise'] }] as Rule[],
+  },
+] as const
+
 export function CreateFlagDialog({
   canCreate = true,
   orgId,
+  defaultOpen = false,
 }: {
   canCreate?: boolean
   orgId?: string
+  defaultOpen?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
+  const [description, setDescription] = useState('')
   const [type, setType] = useState('boolean')
   const [rolloutPct, setRolloutPct] = useState(0)
   const [rules, setRules] = useState<Rule[]>([])
@@ -65,6 +96,7 @@ export function CreateFlagDialog({
   function resetForm() {
     setName('')
     setKey('')
+    setDescription('')
     setType('boolean')
     setRolloutPct(0)
     setRules([])
@@ -107,15 +139,19 @@ export function CreateFlagDialog({
         {
           key,
           name,
+          description: description.trim() || null,
           type,
           environments: Object.fromEntries(ENVIRONMENTS.map((e) => [e, envConfig])),
         },
         orgId,
       )
       toast.success(`Flag "${name}" created`)
+      refreshOnboardingStatus()
       setOpen(false)
       resetForm()
-      router.refresh()
+      const params = new URLSearchParams({ env: 'dev', test: '1' })
+      if (orgId) params.set('org', orgId)
+      router.push(`/flags/${key}?${params.toString()}`)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create flag'
       toast.error(message)
@@ -177,6 +213,39 @@ export function CreateFlagDialog({
               Key is what you pass to{' '}
               <code className="rounded bg-code-bg px-1 py-0.5 font-mono">useFlag()</code> in code.
             </p>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="description">Description</Label>
+              <textarea
+                id="description"
+                placeholder="Optional — what this flag controls"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Template</Label>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {FLAG_TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => {
+                      setType(template.type)
+                      setRolloutPct(template.rolloutPct)
+                      setRules(template.rules)
+                    }}
+                    className="rounded-lg border border-border px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    <span className="block text-sm font-medium">{template.label}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{template.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="space-y-2">
               <Label>Type</Label>
