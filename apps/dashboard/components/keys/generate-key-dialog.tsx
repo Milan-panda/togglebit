@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { refreshOnboardingStatus } from '@/components/onboarding/getting-started-checklist'
 
 export function GenerateKeyDialog({
@@ -58,9 +59,9 @@ export function GenerateKeyDialog({
       if (!token) return
       const result = await api.keys.create(token, { name, environment }, orgId)
       setGeneratedKey(result.raw_key || '')
+      setOpen(true)
       toast.success('API key generated')
       refreshOnboardingStatus()
-      router.refresh()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to generate key'
       toast.error(message)
@@ -69,15 +70,23 @@ export function GenerateKeyDialog({
     }
   }
 
-  function handleCopy() {
-    navigator.clipboard.writeText(generatedKey)
+  async function handleCopy() {
+    const ok = await copyToClipboard(generatedKey)
+    if (!ok) {
+      toast.error('Could not copy automatically. Select the key and copy it manually.')
+      return
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   function handleClose(isOpen: boolean) {
+    const hadGeneratedKey = Boolean(generatedKey)
     setOpen(isOpen)
     if (!isOpen) {
+      if (hadGeneratedKey) {
+        router.refresh()
+      }
       setGeneratedKey('')
       setName('')
       setEnvironment(defaultEnv)
