@@ -20,8 +20,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { ApiKeyRevealDialog } from '@/components/keys/api-key-reveal-dialog'
 import { GenerateKeyDialog } from '@/components/keys/generate-key-dialog'
 import { api, type ApiKey } from '@/lib/api'
+import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { ENVIRONMENTS } from '@/lib/constants'
 
 interface KeyListProps {
@@ -46,6 +48,7 @@ export function KeyList({
   const { getToken } = useAuth()
   const urlEnv = searchParams.get('env') || 'dev'
   const [envTab, setEnvTab] = useState(urlEnv)
+  const [rotatedKey, setRotatedKey] = useState<string | null>(null)
 
   const filteredKeys = useMemo(
     () => keys.filter((k) => k.environment === envTab),
@@ -71,8 +74,12 @@ export function KeyList({
   }
 
   async function copyPrefix(prefix: string) {
-    await navigator.clipboard.writeText(prefix)
-    toast.success('Prefix copied')
+    const ok = await copyToClipboard(prefix)
+    if (ok) {
+      toast.success('Prefix copied')
+    } else {
+      toast.error('Could not copy automatically. Select the prefix and copy it manually.')
+    }
   }
 
   async function handleRevoke(keyId: string) {
@@ -101,12 +108,12 @@ export function KeyList({
         orgId,
       )
       if (created.raw_key) {
-        await navigator.clipboard.writeText(created.raw_key)
-        toast.success('New key created and copied. Revoke the old key when ready.')
+        setRotatedKey(created.raw_key)
+        toast.success('New key created')
       } else {
         toast.success('New key created')
+        router.refresh()
       }
-      router.refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to rotate key')
     }
@@ -119,23 +126,44 @@ export function KeyList({
     router.replace(`${window.location.pathname}?${params.toString()}`)
   }
 
+  function handleRotatedKeyClose(open: boolean) {
+    if (!open) {
+      setRotatedKey(null)
+      router.refresh()
+    }
+  }
+
+  const revealDialog = (
+    <ApiKeyRevealDialog
+      apiKey={rotatedKey}
+      open={rotatedKey !== null}
+      onOpenChange={handleRotatedKeyClose}
+      title="New API Key"
+      description="Your rotated key is shown once. Copy it and update your app before revoking the old key."
+    />
+  )
+
   if (keys.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-border px-6 py-12 text-center">
-        <p className="font-medium">No API keys yet</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Generate a key to use with the SDK in your app.
-        </p>
-        {canManage && (
-          <div className="mt-4">
-            <GenerateKeyDialog canManage orgId={orgId} defaultEnv="dev" defaultOpen={false} />
-          </div>
-        )}
-      </div>
+      <>
+        <div className="rounded-lg border border-dashed border-border px-6 py-12 text-center">
+          <p className="font-medium">No API keys yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Generate a key to use with the SDK in your app.
+          </p>
+          {canManage && (
+            <div className="mt-4">
+              <GenerateKeyDialog canManage orgId={orgId} defaultEnv="dev" defaultOpen={false} />
+            </div>
+          )}
+        </div>
+        {revealDialog}
+      </>
     )
   }
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         {ENVIRONMENTS.map((env) => (
@@ -254,5 +282,7 @@ export function KeyList({
         </Table>
       )}
     </div>
+    {revealDialog}
+    </>
   )
 }

@@ -16,8 +16,12 @@ export function refreshOnboardingStatus() {
 
 export function markSdkSnippetCopied(orgId?: string) {
   if (typeof window === 'undefined') return
-  localStorage.setItem(storageKey(orgId), '1')
-  refreshOnboardingStatus()
+  try {
+    localStorage.setItem(storageKey(orgId), '1')
+    refreshOnboardingStatus()
+  } catch {
+    refreshOnboardingStatus()
+  }
 }
 
 export function hasCopiedSdkSnippet(orgId?: string): boolean {

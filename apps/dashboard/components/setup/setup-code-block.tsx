@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { markSdkSnippetCopied } from '@/lib/onboarding-copy'
 
 export function SetupCodeBlock({
@@ -19,8 +21,12 @@ export function SetupCodeBlock({
 }) {
   const [copied, setCopied] = useState(false)
 
-  function handleCopy() {
-    navigator.clipboard.writeText(code)
+  async function handleCopy() {
+    const ok = await copyToClipboard(code)
+    if (!ok) {
+      toast.error('Could not copy automatically. Select the snippet and copy it manually.')
+      return
+    }
     setCopied(true)
     markSdkSnippetCopied(orgId)
     setTimeout(() => setCopied(false), 2000)
@@ -38,6 +44,7 @@ export function SetupCodeBlock({
           {language}
         </span>
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           className="h-7 gap-1.5 px-2 text-xs"
